@@ -6,7 +6,7 @@ const SPEED = 500;
 
 // load image
 const blockImage = new Image();
-blockImage.src = "IMAGE_URL_HERE"; // <<< REPLACE THIS !!!
+blockImage.src = "https://github.com/Zhelair/Tetris/blob/af2942ab16ae6b5a2f7f9345c27dc3fb564c5d3d/sofia-july-19-2023-chairman-600nw-2334070739.png"; // <<< REPLACE THIS !!!
 
 // canvas
 const canvas = document.getElementById("game");
