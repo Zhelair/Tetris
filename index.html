@@ -1,11 +1,147 @@
-<div class="wrapper">
-  <canvas id="game"></canvas>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Protest Tetris</title>
+  <style>
+    /* ==== BASIC STYLES ==== */
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #fff;
+    }
 
-  <div class="panel">
-    <div class="score-box">
-      <span>Score:</span>
-      <span id="score">0</span>
+    .wrapper {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    #game {
+      background: #111;
+      border: 2px solid #555;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .score-box {
+      font-size: 20px;
+      display: flex;
+      justify-content: space-between;
+      width: 140px;
+    }
+
+    button {
+      padding: 8px 12px;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      background: #ffcc00;
+      color: #000;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <canvas id="game"></canvas>
+
+    <div class="panel">
+      <div class="score-box">
+        <span>Score:</span>
+        <span id="score">0</span>
+      </div>
+      <button id="restart">Restart</button>
+      <small>← → move, ↓ drop, ↑ rotate, Space = hard drop</small>
     </div>
-    <button id="restart">Restart</button>
   </div>
-</div>
+
+  <script>
+    // ===== CONFIG =====
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK = 30;     // pixels
+    const SPEED = 500;    // fall speed (ms)
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    canvas.width = COLS * BLOCK;
+    canvas.height = ROWS * BLOCK;
+
+    const scoreEl = document.getElementById("score");
+
+    // ===== GAME STATE =====
+    let board;
+    let currentPiece;
+    let gameOver;
+    let score;
+    let lastTick;
+
+    // ===== SHAPES (classic tetrominoes) =====
+    const SHAPES = [
+      // I
+      { color:"#00f5ff", cells:[[0,0],[-1,0],[1,0],[2,0]] },
+      // O
+      { color:"#ffe600", cells:[[0,0],[0,1],[1,0],[1,1]] },
+      // T
+      { color:"#ff00ff", cells:[[0,0],[-1,0],[1,0],[0,1]] },
+      // L
+      { color:"#ff7f00", cells:[[0,0],[0,1],[0,2],[1,2]] },
+      // J
+      { color:"#0044ff", cells:[[0,0],[0,1],[0,2],[-1,2]] },
+      // S
+      { color:"#00ff66", cells:[[0,0],[1,0],[0,1],[-1,1]] },
+      // Z
+      { color:"#ff0033", cells:[[0,0],[-1,0],[0,1],[1,1]] }
+    ];
+
+    // ===== HELPERS =====
+    function emptyBoard() {
+      const arr = [];
+      for (let r = 0; r < ROWS; r++) {
+        arr.push(new Array(COLS).fill(null));
+      }
+      return arr;
+    }
+
+    function rotate([x, y]) {
+      return [y, -x]; // 90° clockwise
+    }
+
+    function rotateShape(cells) {
+      return cells.map(rotate);
+    }
+
+    function spawnPiece() {
+      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      return {
+        x: Math.floor(COLS / 2),
+        y: 0,
+        cells: shape.cells.map(c => [...c]),
+        color: shape.color
+      };
+    }
+
+    function valid(piece, offX = 0, offY = 0, newCells = null) {
+      const cells = newCells || piece.cells;
+      for (const [cx, cy] of cells) {
+        const x = piece.x + cx + offX;
+        const y = piece.y + cy + offY;
+
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+        if (board[y][x]) return false;
+      }
+      return true;
+    }
+
+    function merge(piece) {
+      for (const [cx, cy] of piece.c
