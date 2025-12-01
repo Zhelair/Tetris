@@ -71,7 +71,12 @@
     const ROWS = 20;
     const BLOCK = 30;     // pixels
     const SPEED = 500;    // fall speed (ms)
+    // image for all blocks
+const blockImage = new Image();
+blockImage.src = "boiko.png"; // local file in the same repo
 
+
+    
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
     canvas.width = COLS * BLOCK;
@@ -164,11 +169,20 @@
     }
 
     // ===== DRAWING =====
-    function drawCell(x, y, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, BLOCK - 1);
-    }
 
+    function drawCell(x, y, color) {
+  const px = x * BLOCK;
+  const py = y * BLOCK;
+
+  // if image is loaded, draw it
+  if (blockImage.complete) {
+    ctx.drawImage(blockImage, px, py, BLOCK, BLOCK);
+  } else {
+    // fallback while image is loading
+    ctx.fillStyle = color || "#ffffff";
+    ctx.fillRect(px, py, BLOCK - 1, BLOCK - 1);
+  }
+}
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
