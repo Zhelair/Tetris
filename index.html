@@ -14,10 +14,10 @@
       font-family: Arial, sans-serif;
       color: #fff;
 
-      /* Simple "Sofia-ish" night city vibe, no external image */
+      /* Sofia background + dark overlay */
       background:
-        radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 55%),
-        linear-gradient(to bottom, #050813, #000000);
+        linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.85)),
+        url("sofia.png") center/cover no-repeat fixed;
     }
 
     .wrapper {
@@ -39,7 +39,7 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      min-width: 160px;
+      min-width: 180px;
     }
 
     .score-box {
@@ -56,7 +56,7 @@
 
     button {
       padding: 8px 12px;
-      font-size: 16px;
+      font-size: 14px;
       border: none;
       cursor: pointer;
       background: #ffcc00;
@@ -72,6 +72,7 @@
       max-width: 180px;
       line-height: 1.3;
       opacity: 0.9;
+      font-size: 12px;
     }
   </style>
 </head>
@@ -85,9 +86,13 @@
         <span id="score">0</span>
       </div>
       <button id="restart">Restart</button>
+      <button id="toggleMusic">Play music</button>
       <small>← → move, ↓ drop, ↑ rotate, Space = hard drop</small>
     </div>
   </div>
+
+  <!-- 8-bit / chiptune music (you upload music.mp3 in the repo root) -->
+  <audio id="bgm" src="music.mp3" loop></audio>
 
   <script>
     // ===== CONFIG =====
@@ -106,6 +111,10 @@
     canvas.height = ROWS * BLOCK;
 
     const scoreEl = document.getElementById("score");
+    const bgm = document.getElementById("bgm");
+    const toggleMusicBtn = document.getElementById("toggleMusic");
+
+    let musicPlaying = false;
 
     // ===== GAME STATE =====
     let board;
@@ -313,10 +322,38 @@
       }
 
       draw();
+
+      // small UX bonus: start music on first key press if user hasn't clicked
+      if (!musicPlaying && bgm && bgm.paused) {
+        try {
+          bgm.play();
+          musicPlaying = true;
+          toggleMusicBtn.textContent = "Pause music";
+        } catch (err) {
+          // some browsers block autoplay, nothing fatal
+        }
+      }
     });
 
     document.getElementById("restart").addEventListener("click", () => {
       initGame();
+    });
+
+    // ===== MUSIC TOGGLE =====
+    toggleMusicBtn.addEventListener("click", () => {
+      if (!bgm) return;
+      if (!musicPlaying) {
+        bgm.play().then(() => {
+          musicPlaying = true;
+          toggleMusicBtn.textContent = "Pause music";
+        }).catch(() => {
+          // autoplay blocked; user might need another click, but no crash
+        });
+      } else {
+        bgm.pause();
+        musicPlaying = false;
+        toggleMusicBtn.textContent = "Play music";
+      }
     });
 
     // ===== INIT =====
