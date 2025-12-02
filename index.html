@@ -524,34 +524,32 @@
       });
     }
 
-   // Level up rewards: bonus score + guaranteed crowd power + sometimes EU inspection
-function levelUpIfNeeded() {
-  const LINES_PER_LEVEL = 3; // was 5, now easier
+    // Level up rewards: bonus score + guaranteed crowd power + sometimes EU inspection
+    function levelUpIfNeeded() {
+      const newLevel = Math.floor(linesClearedTotal / 5) + 1;
+      if (newLevel !== level) {
+        level = newLevel;
+        levelEl.textContent = level;
 
-  const newLevel = Math.floor(linesClearedTotal / LINES_PER_LEVEL) + 1;
-  if (newLevel !== level) {
-    level = newLevel;
-    levelEl.textContent = level;
+        score += 200;
+        scoreEl.textContent = score;
+        triggerCrowdPower();
 
-    score += 200;
-    scoreEl.textContent = score;
-    triggerCrowdPower();
+        // every 2nd level, we call EU inspection
+        if (level >= 2 && level % 2 === 0) {
+          startEUInspection();
+        }
 
-    // EU inspection less often: every 3rd level (3, 6, 9, ...)
-    if (level >= 3 && level % 3 === 0) {
-      startEUInspection();
+        updateFallSpeed();
+        popups.push({
+          x: 2,
+          y: 1,
+          text: "LEVEL " + level,
+          life: 80,
+          center: true
+        });
+      }
     }
-
-    updateFallSpeed();
-    popups.push({
-      x: 2,
-      y: 1,
-      text: "LEVEL " + level,
-      life: 80,
-      center: true
-    });
-  }
-}
 
     function clearLines() {
       let clearedNow = 0;
