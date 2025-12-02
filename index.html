@@ -58,45 +58,43 @@
     button:hover {
       filter: brightness(1.1);
     }
-
-    /* Big, touch-friendly buttons */
-    .touch-controls {
+.touch-controls {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px;        /* was 8px */
-    margin-top: 6px; /* was 10px */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;           /* almost no gap */
+    margin-top: 4px;    /* smaller top margin */
     width: 100%;
 }
 
-    .touch-controls button {
-      padding: 9px;        /* was 10px */
-      font-size: 16px;     /* was 18px */
-      min-height: 45px;    /* was 52px */
-      border-radius: 10px;
-      font-weight: bold;
-      max-width: 90px; /* LIMITS width on small screens */
+.touch-controls button {
+    padding: 9px;
+    font-size: 16px;
+    min-height: 45px;
+    border-radius: 8px;
+    font-weight: bold;
+    max-width: 100%;     /* no horizontal stretching */
 }
+
 
 }
 
     /* System buttons */
-    .system-controls {
+.system-controls {
     display: flex;
-    flex-wrap: wrap;
-    gap: 3px;        /* was 6px */
-    margin-top: 6px; /* was 10px */
+    flex-direction: row;
     width: 100%;
-    justify-content: space-between;
+    gap: 2px;            /* minimal space */
+    margin-top: 6px;
 }
 
-    .system-controls button {
-      flex: 1 1 30%;
-      padding: 5px;        /* was 6px */
-      font-size: 9px;      /* was 11px */
-      min-height: 26px;    /* was 34px */
-      border-radius: 8px;
-      font-weight: normal;
-      max-width: 80px;
+.system-controls button {
+    flex: 1 1 0;
+    padding: 7px;        /* bigger */
+    font-size: 11px;     /* readable again */
+    min-height: 32px;
+    border-radius: 8px;
+    font-weight: bold;
+    max-width: 100%;
 }
 
     .label {
