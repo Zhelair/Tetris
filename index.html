@@ -306,8 +306,9 @@
       }
     }
 
+    // Всички попъп-и: по-дълго време (около 5 секунди)
     function addPopup(text,row,center=false) {
-      popups.push({ x:1.5, y:row, text, life:120, center });
+      popups.push({ x:1.5, y:row, text, life:300, center });
     }
 
     function addParticlesForRow(row) {
@@ -368,7 +369,7 @@
         x: 1.5,
         y: 0.5,
         text: "МЕГА БУМ!",
-        life: 140,
+        life: 300,
         center: true
       });
     }
@@ -415,7 +416,7 @@
         x: 1.5,
         y: 0.5,
         text: "Прасешка бомба!",
-        life: 120,
+        life: 300,
         center: true
       });
       shakeTimer = Math.max(shakeTimer, 16);
@@ -454,7 +455,7 @@
         x: 1.5,
         y: 2,
         text: "Генерална стачка!",
-        life: 140,
+        life: 300,
         center: true
       });
       addMegaExplosion();
@@ -469,7 +470,7 @@
         x: 1.5,
         y: 0.5,
         text: "Проверка от ЕС",
-        life: 140,
+        life: 300,
         center: true
       });
     }
@@ -501,7 +502,7 @@
           x: 2,
           y: 1,
           text: "НИВО " + level,
-          life: 140,
+          life: 300,
           center: true
         });
       }
@@ -576,7 +577,6 @@
       if (img && img.complete && img.naturalWidth>0) {
         ctx.drawImage(img,px,py,BLOCK,BLOCK);
       }
-      if (cell.bribed) { /* вече не ползваме bribed, но ако има стари данни – игнорираме */ }
       ctx.strokeStyle="rgba(0,0,0,0.7)";
       ctx.lineWidth=1;
       ctx.strokeRect(px+0.5, py+0.5, BLOCK-1, BLOCK-1);
@@ -686,7 +686,7 @@
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
-        ctx.fillStyle="#ffea00"; ctx.font="24px Arial";
+        ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
         ctx.textAlign="center";
         ctx.fillText("Оставка!",WIDTH/2,HEIGHT/2-5);
         ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
@@ -760,22 +760,25 @@
         }
       }
 
+      // Проверка от ЕС – замразено
       if (inspectionActive) {
         inspectionTimer--;
         if (inspectionTimer <= 0) {
           inspectionActive = false;
           score += 100;
           scoreEl.textContent = score;
+          // 🟡 ТУК ПРЕМЕСТИХМЕ ФРАЗАТА В ЦЕНТЪРА
           popups.push({
             x: 1.5,
-            y: 0.5,
+            y: ROWS/2,   // вертикален център
             text: "Проверката приключи",
-            life: 140,
+            life: 300,
             center: true
           });
         }
       }
 
+      // TV режим – само ако няма проверка
       if (!gameOver && !inspectionActive) {
         if (!spinActive && t >= spinNextTime) {
           spinActive = true;
@@ -786,7 +789,7 @@
             x: 1.5,
             y: 0.5,
             text: "TV: Всичко е наред!",
-            life: 140,
+            life: 300,
             center: true
           });
         } else if (spinActive && t >= spinEndTime) {
