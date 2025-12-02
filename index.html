@@ -43,8 +43,8 @@
     .side-panel {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      min-width: 170px;
+      gap: 10px;
+      min-width: 190px;
     }
 
     .score-box {
@@ -74,7 +74,7 @@
     }
 
     small {
-      max-width: 190px;
+      max-width: 200px;
       line-height: 1.3;
       opacity: 0.9;
       font-size: 12px;
@@ -85,7 +85,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 10px;
+      margin-top: 8px;
     }
 
     .touch-controls button {
@@ -103,9 +103,8 @@
       }
 
       .side-panel {
-        flex-direction: column;
-        align-items: stretch;
         width: 100%;
+        align-items: stretch;
       }
 
       #game {
@@ -125,6 +124,7 @@
         <span id="score">0</span>
       </div>
       <button id="restart">Restart</button>
+      <button id="pause">Pause</button>
       <button id="toggleMusic">Play music</button>
 
       <small>Keyboard: ← → move, ↓ drop, ↑ rotate, Space = hard drop</small>
@@ -146,7 +146,7 @@
     // ===== CONFIG =====
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK = 30;     // pixels
+    const BLOCK = 38;     // pixels (bigger than before: 30 -> 38 ≈ +26%)
     const SPEED = 500;    // fall speed (ms)
 
     // Try to load Boiko image; if missing, we fallback to color blocks
@@ -162,6 +162,7 @@
     const bgm = document.getElementById("bgm");
     const toggleMusicBtn = document.getElementById("toggleMusic");
     const restartBtn = document.getElementById("restart");
+    const pauseBtn = document.getElementById("pause");
     const touchButtons = document.querySelectorAll(".touch-controls button");
 
     let musicPlaying = false;
@@ -173,6 +174,7 @@
     let score;
     let lastTick;
     let popups = []; // floating "CORRUPTION -1" texts
+    let paused = false;
 
     // ===== SHAPES (classic tetrominoes) =====
     const SHAPES = [
@@ -330,6 +332,16 @@
         ctx.font = "16px Arial";
         ctx.fillText("Натисни Restart, за да опиташ отново.", canvas.width / 2, canvas.height / 2 + 25);
       }
+
+      // Pause overlay (if paused but not game over)
+      if (paused && !gameOver) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80);
+        ctx.fillStyle = "#ffcc00";
+        ctx.font = "24px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Пауза", canvas.width / 2, canvas.height / 2 + 5);
+      }
     }
 
     // ===== GAME LOOP =====
@@ -349,7 +361,7 @@
     function update(timestamp) {
       if (!lastTick) lastTick = timestamp;
 
-      if (!gameOver && timestamp - lastTick > SPEED) {
+      if (!gameOver && !paused && timestamp - lastTick > SPEED) {
         stepDown();
         lastTick = timestamp;
       }
@@ -360,7 +372,7 @@
 
     // ===== MOVEMENT HANDLER (keyboard + touch use this) =====
     function handleAction(action) {
-      if (gameOver || !currentPiece) return;
+      if (gameOver || !currentPiece || paused) return;
 
       if (action === "left") {
         if (valid(currentPiece, -1, 0)) currentPiece.x -= 1;
@@ -387,9 +399,7 @@
         bgm.play().then(() => {
           musicPlaying = true;
           toggleMusicBtn.textContent = "Pause music";
-        }).catch(() => {
-          // autoplay blocked; okay, no crash
-        });
+        }).catch(() => {});
       }
     }
 
@@ -422,6 +432,18 @@
       initGame();
     });
 
+    // ===== PAUSE BUTTON =====
+    pauseBtn.addEventListener("click", () => {
+      if (gameOver) return;
+      paused = !paused;
+      pauseBtn.textContent = paused ? "Resume" : "Pause";
+      if (!paused) {
+        // reset lastTick so piece doesn't suddenly jump after unpause
+        lastTick = performance.now();
+      }
+      draw();
+    });
+
     // ===== MUSIC TOGGLE =====
     toggleMusicBtn.addEventListener("click", () => {
       if (!bgm) return;
@@ -448,6 +470,8 @@
       scoreEl.textContent = score;
       lastTick = 0;
       popups = [];
+      paused = false;
+      pauseBtn.textContent = "Pause";
       draw();
     }
 
