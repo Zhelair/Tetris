@@ -22,13 +22,14 @@
     .wrapper {
       display: flex;
       flex-direction: row;
-      gap: 16px;
+      gap: 12px;
       align-items: flex-start;
-      padding: 10px 12px;
+      padding: 8px 10px;
       background: rgba(0, 0, 0, 0.7);
       border-radius: 10px;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
       max-width: 100%;
+      box-sizing: border-box;
     }
 
     #game {
@@ -42,13 +43,13 @@
     .side-panel {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      min-width: 180px;
+      gap: 8px;
+      min-width: 165px;
     }
 
     button {
-      padding: 6px 8px;
-      font-size: 13px;
+      padding: 5px 7px;
+      font-size: 12px;
       border: none;
       cursor: pointer;
       background: #ffcc00;
@@ -63,24 +64,24 @@
     .touch-controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
+      gap: 5px;
+      margin-top: 6px;
     }
 
     .touch-controls button {
       flex: 1 1 30%;
-      padding: 8px;
-      font-size: 15px;
+      padding: 6px;
+      font-size: 13px;
       border-radius: 6px;
     }
 
     .label {
       font-weight: bold;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .value {
-      font-size: 16px;
+      font-size: 15px;
       margin-top: 1px;
     }
 
@@ -88,16 +89,15 @@
     @media (max-width: 700px) {
       body {
         justify-content: center;
-        align-items: flex-start;   /* anchor to top */
-        padding-top: 8px;
+        align-items: flex-start;
+        padding-top: 6px;
       }
 
       .wrapper {
         flex-direction: column;
         align-items: center;
         width: 100%;
-        max-width: 420px;          /* keeps content compact */
-        box-sizing: border-box;
+        max-width: 380px;   /* slightly narrower on phones */
       }
 
       .side-panel {
@@ -106,7 +106,7 @@
       }
 
       #game {
-        width: 100%;               /* scale nicely on phones */
+        width: 100%;
         height: auto;
       }
     }
@@ -131,7 +131,7 @@
       <button id="pause">Pause</button>
       <button id="toggleMusic">Play music</button>
 
-      <div style="font-size:11px;opacity:0.9;max-width:190px;">
+      <div style="font-size:10px;opacity:0.9;max-width:180px;">
         ← → move, ↓ drop, ↑ rotate, Space = hard drop
       </div>
 
@@ -154,10 +154,9 @@
     // ===== CONFIG =====
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK = 27;     // size of each block (good for phones)
+    const BLOCK = 22;     // smaller size for better fit
     const BASE_SPEED = 500;
 
-    // Multiple Boiko images
     const boikoImages = [];
     ["boiko.png", "boiko_1.png", "boiko_2.png"].forEach(src => {
       const img = new Image();
@@ -386,7 +385,7 @@
       }
 
       popups.forEach(p=>{
-        ctx.font="15px Arial"; ctx.lineWidth=3;
+        ctx.font="13px Arial"; ctx.lineWidth=3;
         let x=p.x*BLOCK, y=p.y*BLOCK+BLOCK/2;
         ctx.strokeStyle="#000"; ctx.strokeText(p.text,x,y);
         ctx.fillStyle="#ffea00"; ctx.fillText(p.text,x,y);
@@ -411,25 +410,25 @@
 
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
-        ctx.fillRect(0,canvas.height/2-60,canvas.width,120);
-        ctx.fillStyle="#ffea00"; ctx.font="30px Arial";
+        ctx.fillRect(0,canvas.height/2-50,canvas.width,100);
+        ctx.fillStyle="#ffea00"; ctx.font="24px Arial";
         ctx.textAlign="center";
         ctx.fillText("Оставка!",canvas.width/2,canvas.height/2-5);
-        ctx.fillStyle="#ffffff"; ctx.font="15px Arial";
-        ctx.fillText("Натисни Restart",canvas.width/2,canvas.height/2+25);
+        ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
+        ctx.fillText("Натисни Restart",canvas.width/2,canvas.height/2+20);
       }
 
       if (paused && !gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.6)";
-        ctx.fillRect(0,canvas.height/2-40,canvas.width,80);
-        ctx.fillStyle="#ffcc00"; ctx.font="22px Arial";
+        ctx.fillRect(0,canvas.height/2-35,canvas.width,70);
+        ctx.fillStyle="#ffcc00"; ctx.font="18px Arial";
         ctx.textAlign="center";
         ctx.fillText("Пауза",canvas.width/2,canvas.height/2+5);
       }
 
-      ctx.font="12px Arial"; ctx.textAlign="right";
+      ctx.font="11px Arial"; ctx.textAlign="right";
       ctx.fillStyle="rgba(255,255,255,0.6)";
-      ctx.fillText("#Оставка2025",canvas.width-4,canvas.height-4);
+      ctx.fillText("#Оставка2025",canvas.width-3,canvas.height-3);
     }
 
     function stepDown() {
