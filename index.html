@@ -35,9 +35,8 @@
     #game {
       background: transparent;
       border: 2px solid #555;
-      max-width: 100%;
-      height: auto;
       display: block;
+      /* IMPORTANT: no width:100% here – we keep intrinsic pixel size */
     }
 
     .side-panel {
@@ -97,7 +96,7 @@
         flex-direction: column;
         align-items: center;
         width: 100%;
-        max-width: 380px;   /* slightly narrower on phones */
+        max-width: 380px;
       }
 
       .side-panel {
@@ -105,9 +104,9 @@
         align-items: stretch;
       }
 
+      /* DO NOT SCALE CANVAS – keep its natural size */
       #game {
-        width: 100%;
-        height: auto;
+        margin-bottom: 6px;  /* small gap above controls */
       }
     }
   </style>
