@@ -60,18 +60,21 @@
       filter: brightness(1.1);
     }
 
+    /* NEW: bigger, more comfy touch controls in a grid */
     .touch-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-top: 6px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+      width: 100%;
     }
 
     .touch-controls button {
-      flex: 1 1 30%;
-      padding: 6px;
-      font-size: 13px;
-      border-radius: 6px;
+      padding: 10px;
+      font-size: 18px;
+      min-height: 48px;
+      border-radius: 10px;
+      font-weight: bold;
     }
 
     .label {
@@ -325,11 +328,18 @@
       fallSpeed = spinActive ? normal * 2 : normal;
     }
 
+    // NEW: level up gives rewards
     function levelUpIfNeeded() {
       const newLevel = Math.floor(linesClearedTotal / 5) + 1;
       if (newLevel !== level) {
         level = newLevel;
         levelEl.textContent = level;
+
+        // Reward: bonus score + guaranteed crowd power
+        score += 200;
+        scoreEl.textContent = score;
+        triggerCrowdPower();
+
         updateFallSpeed();
         popups.push({
           x: 2,
@@ -364,7 +374,7 @@
       }
 
       if (clearedNow >= 1) {
-        // 70% chance to trigger crowd power (increased from 35%)
+        // 70% chance to trigger crowd power
         if (Math.random() < 0.7) {
           triggerCrowdPower();
         }
@@ -502,7 +512,7 @@
         ctx.fillText("Натисни Restart",WIDTH/2,HEIGHT/2+20);
       }
 
-      // Media Spin overlay (now = slow motion)
+      // Media Spin overlay (slow motion)
       if (spinActive && !gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.75)";
         const barHeight = 24;
@@ -578,7 +588,7 @@
     function handleAction(a) {
       if (gameOver || paused) return;
 
-      // NO inversion here anymore, just normal controls
+      // Normal controls (no inversion)
       if (a === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
       if (a === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
       if (a === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
