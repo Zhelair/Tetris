@@ -6,16 +6,19 @@
   <style>
     /* ==== BASIC STYLES ==== */
     body {
-      background: #000;
+      margin: 0;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      margin: 0;
       font-family: Arial, sans-serif;
       color: #fff;
-    }
 
+      /* Sofia background */
+      background: #000 url("sofia.png") center/cover no-repeat fixed;
+      backdrop-filter: blur(2px);
+    }
+ 
     .wrapper {
       display: flex;
       gap: 20px;
@@ -90,6 +93,7 @@ blockImage.src = "boiko.png"; // local file in the same repo
     let gameOver;
     let score;
     let lastTick;
+    
 
     // ===== SHAPES (classic tetrominoes) =====
     const SHAPES = [
