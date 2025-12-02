@@ -343,9 +343,12 @@
       }
     }
 
-    // Всички попъп-и: по-дълго време (около 5 секунди)
+    // 🔁 По-умни попъпи – подреждаме ги нагоре, когато има много
     function addPopup(text,row,center=false) {
-      popups.push({ x:1.5, y:row, text, life:300, center });
+      const active = popups.length;
+      // колкото повече има, толкова по-нагоре я вдигаме
+      const y = row - 0.6 * active;
+      popups.push({ x:1.5, y, text, life:300, center });
     }
 
     function addParticlesForRow(row) {
@@ -479,10 +482,16 @@
       addPopup("Купен вот (автобус)", row, true);
       addParticlesForRow(row);
 
+      // 30 секунди бавна анимация през целия екран
+      const distance = WIDTH + BLOCK * 8; // от -4 блока до +4 отвъд
+      const durationMs = 30000;
+      const speed = distance / durationMs; // пиксели/мс
+
       busEffect = {
         row,
         x: -BLOCK * 4,
-        life: 60
+        speed,
+        lastTime: null
       };
     }
 
@@ -807,12 +816,6 @@
         ctx.arc(busEffect.x + BLOCK*3.2, y+BLOCK*0.8, 3, 0, Math.PI*2);
         ctx.fill();
         ctx.restore();
-
-        busEffect.x += 4;
-        busEffect.life--;
-        if (busEffect.life <= 0 || busEffect.x > WIDTH + BLOCK*4) {
-          busEffect = null;
-        }
       }
 
       // Game over
@@ -928,6 +931,20 @@
         } else if (spinActive && t >= spinEndTime) {
           spinActive = false;
           updateFallSpeed();
+        }
+      }
+
+      // Автобус движение – бавен за ~30 секунди
+      if (busEffect) {
+        if (busEffect.lastTime == null) {
+          busEffect.lastTime = t;
+        } else {
+          const dt = t - busEffect.lastTime; // ms
+          busEffect.lastTime = t;
+          busEffect.x += busEffect.speed * dt;
+          if (busEffect.x > WIDTH + BLOCK * 4) {
+            busEffect = null;
+          }
         }
       }
 
