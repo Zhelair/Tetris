@@ -41,7 +41,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      min-width: 190px;
+      min-width: 200px;
     }
 
     button {
@@ -86,6 +86,16 @@
         height: auto;
       }
     }
+
+    .label {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .value {
+      font-size: 18px;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -94,8 +104,13 @@
 
     <div class="side-panel">
       <div>
-        <span style="font-weight:bold;font-size:16px;">Corruption cleared:</span>
-        <div id="score" style="margin-top:4px;font-size:18px;">0</div>
+        <div class="label">Corruption cleared:</div>
+        <div id="score" class="value">0</div>
+      </div>
+
+      <div>
+        <div class="label">Level:</div>
+        <div id="level" class="value">1</div>
       </div>
 
       <button id="restart">Restart</button>
@@ -116,14 +131,17 @@
     </div>
   </div>
 
+  <!-- Music (optional) -->
   <audio id="bgm" src="music.mp3" loop></audio>
+  <!-- Protest chant (optional, plays on multi-line clear) -->
+  <audio id="chant" src="chant.mp3"></audio>
 
   <script>
     // ===== CONFIG =====
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK = 32;     // <--- YOUR NEW SIZE
-    const SPEED = 500;
+    const BLOCK = 32;     // good size for phone + desktop
+    const BASE_SPEED = 500; // base fall speed in ms
 
     // Multiple Boiko images
     const boikoImages = [];
@@ -139,31 +157,41 @@
     canvas.height = ROWS * BLOCK;
 
     const scoreEl = document.getElementById("score");
+    const levelEl = document.getElementById("level");
     const bgm = document.getElementById("bgm");
+    const chant = document.getElementById("chant");
     const toggleMusicBtn = document.getElementById("toggleMusic");
     const restartBtn = document.getElementById("restart");
     const pauseBtn = document.getElementById("pause");
     const touchButtons = document.querySelectorAll(".touch-controls button");
 
     let musicPlaying = false;
+
+    // ===== GAME STATE =====
     let board;
     let currentPiece;
     let gameOver;
     let score;
     let lastTick;
-    let popups = [];
+    let popups = [];     // "CORRUPTION -1"
+    let particles = [];  // explosion particles
     let paused = false;
+    let level = 1;
+    let linesClearedTotal = 0;
+    let fallSpeed = BASE_SPEED;
 
+    // ===== SHAPES =====
     const SHAPES = [
-      {cells:[[0,0],[-1,0],[1,0],[2,0]]},
-      {cells:[[0,0],[0,1],[1,0],[1,1]]},
-      {cells:[[0,0],[-1,0],[1,0],[0,1]]},
-      {cells:[[0,0],[0,1],[0,2],[1,2]]},
-      {cells:[[0,0],[0,1],[0,2],[-1,2]]},
-      {cells:[[0,0],[1,0],[0,1],[-1,1]]},
-      {cells:[[0,0],[-1,0],[0,1],[1,1]]}
+      { cells:[[0,0],[-1,0],[1,0],[2,0]] },     // I
+      { cells:[[0,0],[0,1],[1,0],[1,1]] },      // O
+      { cells:[[0,0],[-1,0],[1,0],[0,1]] },     // T
+      { cells:[[0,0],[0,1],[0,2],[1,2]] },      // L
+      { cells:[[0,0],[0,1],[0,2],[-1,2]] },     // J
+      { cells:[[0,0],[1,0],[0,1],[-1,1]] },     // S
+      { cells:[[0,0],[-1,0],[0,1],[1,1]] }      // Z
     ];
 
+    // ===== HELPERS =====
     function emptyBoard() {
       return Array.from({length: ROWS}, () => Array(COLS).fill(null));
     }
@@ -179,14 +207,14 @@
         y: 0,
         cells: shape.cells.map(c=>[...c]),
         imgIndex
-      }
+      };
     }
 
     function valid(piece, dx=0, dy=0, newCells=null) {
       const cells = newCells || piece.cells;
       for (const [cx,cy] of cells) {
-        let x = piece.x + cx + dx;
-        let y = piece.y + cy + dy;
+        const x = piece.x + cx + dx;
+        const y = piece.y + cy + dy;
         if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
         if (board[y][x]) return false;
       }
@@ -203,20 +231,71 @@
       popups.push({ x:1.5, y:row, text, life:60 });
     }
 
+    // Particle explosion when lines cleared
+    function addParticlesForRow(row) {
+      const y = row * BLOCK + BLOCK/2;
+      for (let i=0; i<40; i++) {
+        const x = Math.random() * canvas.width;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random()*2;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle)*speed,
+          vy: Math.sin(angle)*speed - 1,
+          life: 40 + Math.random()*20
+        });
+      }
+    }
+
+    function levelUpIfNeeded() {
+      const newLevel = Math.floor(linesClearedTotal / 5) + 1; // +1 so start at level 1
+      if (newLevel !== level) {
+        level = newLevel;
+        levelEl.textContent = level;
+        // Increase speed, but not too crazy
+        fallSpeed = Math.max(150, BASE_SPEED - (level-1)*50);
+        // Optional popup
+        popups.push({
+          x: 2,
+          y: 1,
+          text: "LEVEL " + level,
+          life: 80
+        });
+      }
+    }
+
     function clearLines() {
+      let clearedNow = 0;
       for (let r=ROWS-1; r>=0; r--) {
         if (board[r].every(c=>c!==null)) {
           board.splice(r,1);
           board.unshift(new Array(COLS).fill(null));
           score += 100;
           scoreEl.textContent = score;
+          linesClearedTotal++;
+          clearedNow++;
+
           addPopup("CORRUPTION -1", r);
-          r++;
+          addParticlesForRow(r);
+
+          r++; // re-check
         }
+      }
+
+      if (clearedNow >= 2 && chant) {
+        try {
+          chant.currentTime = 0;
+          chant.play();
+        } catch(e) {}
+      }
+
+      if (clearedNow > 0) {
+        levelUpIfNeeded();
       }
     }
 
-    // ≡ Bulgarian flag inside canvas
+    // ===== DRAWING =====
     function drawFlagBackground() {
       const stripeHeight = canvas.height/3;
       ctx.fillStyle = "#ffffff";
@@ -232,7 +311,7 @@
     function drawCell(x,y,cell) {
       const px = x*BLOCK, py = y*BLOCK;
       const img = boikoImages[cell.imgIndex];
-      if (img.complete && img.naturalWidth > 0) {
+      if (img && img.complete && img.naturalWidth > 0) {
         ctx.drawImage(img, px, py, BLOCK, BLOCK);
       }
     }
@@ -241,33 +320,44 @@
       ctx.clearRect(0,0,canvas.width,canvas.height);
       drawFlagBackground();
 
+      // board
       for (let r=0;r<ROWS;r++)
         for (let c=0;c<COLS;c++)
           if (board[r][c]) drawCell(c,r,board[r][c]);
 
+      // active piece
       if (currentPiece && !gameOver) {
         for (const [cx,cy] of currentPiece.cells)
           drawCell(currentPiece.x+cx,currentPiece.y+cy,{imgIndex:currentPiece.imgIndex});
       }
 
+      // popups
       popups.forEach(p=>{
         ctx.font="16px Arial";
         ctx.lineWidth=3;
-
         let sx=p.x*BLOCK;
         let sy=p.y*BLOCK+BLOCK/2;
-
         ctx.strokeStyle="#000";
         ctx.strokeText(p.text,sx,sy);
         ctx.fillStyle="#ffea00";
         ctx.fillText(p.text,sx,sy);
-
         p.y -= 0.03;
         p.life--;
       });
-
       popups = popups.filter(p=>p.life>0);
 
+      // particles
+      particles.forEach(pr=>{
+        pr.x += pr.vx;
+        pr.y += pr.vy;
+        pr.vy += 0.05; // gravity
+        pr.life--;
+        ctx.fillStyle = "rgba(255, 234, 0, 0.8)";
+        ctx.fillRect(pr.x, pr.y, 2, 2);
+      });
+      particles = particles.filter(pr=>pr.life>0);
+
+      // game over overlay
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,canvas.height/2-60,canvas.width,120);
@@ -279,19 +369,27 @@
 
         ctx.fillStyle="#ffffff";
         ctx.font="16px Arial";
-        ctx.fillText("Натисни Restart.", canvas.width/2, canvas.height/2+25);
+        ctx.fillText("Натисни Restart, за да опиташ отново.", canvas.width/2, canvas.height/2+25);
       }
 
+      // pause overlay
       if (paused && !gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.6)";
         ctx.fillRect(0,canvas.height/2-40,canvas.width,80);
-
         ctx.fillStyle="#ffcc00";
         ctx.font="24px Arial";
+        ctx.textAlign="center";
         ctx.fillText("Пауза", canvas.width/2, canvas.height/2+5);
       }
+
+      // watermark
+      ctx.font = "14px Arial";
+      ctx.textAlign = "right";
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillText("#Оставка2025", canvas.width - 6, canvas.height - 6);
     }
 
+    // ===== GAME LOOP =====
     function stepDown() {
       if (valid(currentPiece,0,1)) currentPiece.y++;
       else {
@@ -305,7 +403,7 @@
     function update(t) {
       if (!lastTick) lastTick = t;
 
-      if (!paused && !gameOver && t-lastTick > SPEED) {
+      if (!paused && !gameOver && t-lastTick > fallSpeed) {
         stepDown();
         lastTick = t;
       }
@@ -314,6 +412,7 @@
       requestAnimationFrame(update);
     }
 
+    // ===== INPUT / CONTROLS =====
     function handleAction(a) {
       if (gameOver || paused) return;
       if (a==="left" && valid(currentPiece,-1,0)) currentPiece.x--;
@@ -328,6 +427,14 @@
         stepDown();
       }
       draw();
+
+      // auto-start music on first action
+      if (!musicPlaying && bgm && bgm.paused) {
+        bgm.play().then(()=>{
+          musicPlaying=true;
+          toggleMusicBtn.textContent="Pause music";
+        }).catch(()=>{});
+      }
     }
 
     document.addEventListener("keydown",(e)=>{
@@ -350,9 +457,10 @@
       draw();
     };
 
-    restartBtn.onclick=init;
+    restartBtn.onclick=initGame;
 
     toggleMusicBtn.onclick=function(){
+      if(!bgm)return;
       if(!musicPlaying){
         bgm.play().then(()=>{
           musicPlaying=true;
@@ -365,20 +473,26 @@
       }
     };
 
-    function init() {
+    // ===== INIT =====
+    function initGame() {
       board = emptyBoard();
       currentPiece = spawnPiece();
       score = 0;
       gameOver = false;
       paused = false;
-      scoreEl.textContent=0;
+      linesClearedTotal = 0;
+      level = 1;
+      fallSpeed = BASE_SPEED;
+      scoreEl.textContent = score;
+      levelEl.textContent = level;
       pauseBtn.textContent="Pause";
       lastTick=0;
       popups=[];
+      particles=[];
       draw();
     }
 
-    init();
+    initGame();
     requestAnimationFrame(update);
   </script>
 </body>
