@@ -35,7 +35,7 @@
     }
 
     #game {
-      background: #111;
+      background: transparent; /* we draw Bulgarian flag manually */
       border: 2px solid #555;
       max-width: 100%;
     }
@@ -146,12 +146,16 @@
     // ===== CONFIG =====
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK = 38;     // pixels (bigger than before: 30 -> 38 ≈ +26%)
+    const BLOCK = 38;     // pixels (bigger)
     const SPEED = 500;    // fall speed (ms)
 
-    // Try to load Boiko image; if missing, we fallback to color blocks
-    const blockImage = new Image();
-    blockImage.src = "boiko.png"; // must be in same folder as index.html
+    // Load multiple Boiko images for variety
+    const boikoImages = [];
+    ["boiko.png", "boiko_1.png", "boiko_2.png"].forEach(src => {
+      const img = new Image();
+      img.src = src;
+      boikoImages.push(img);
+    });
 
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -213,11 +217,13 @@
 
     function spawnPiece() {
       const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      const imgIndex = Math.floor(Math.random() * boikoImages.length);
       return {
         x: Math.floor(COLS / 2),
         y: 0,
         cells: shape.cells.map(c => [...c]),
-        color: shape.color
+        color: shape.color,
+        imgIndex
       };
     }
 
@@ -237,7 +243,10 @@
       for (const [cx, cy] of piece.cells) {
         const x = piece.x + cx;
         const y = piece.y + cy;
-        board[y][x] = piece.color;
+        board[y][x] = {
+          color: piece.color,
+          imgIndex: piece.imgIndex
+        };
       }
     }
 
@@ -266,15 +275,35 @@
     }
 
     // ===== DRAWING =====
-    function drawCell(x, y, color) {
+
+    // Bulgarian flag background inside canvas
+    function drawFlagBackground() {
+      const stripeHeight = canvas.height / 3;
+
+      // White
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, stripeHeight);
+
+      // Green
+      ctx.fillStyle = "#00966E";
+      ctx.fillRect(0, stripeHeight, canvas.width, stripeHeight);
+
+      // Red
+      ctx.fillStyle = "#d62612";
+      ctx.fillRect(0, 2 * stripeHeight, canvas.width, stripeHeight);
+    }
+
+    function drawCell(x, y, cell) {
       const px = x * BLOCK;
       const py = y * BLOCK;
+      const color = cell && cell.color ? cell.color : "#ffffff";
+      const idx = cell && typeof cell.imgIndex === "number" ? cell.imgIndex : 0;
+      const img = boikoImages[idx];
 
-      // Use Boiko image if loaded AND valid; else fallback to color
-      if (blockImage.complete && blockImage.naturalWidth > 0) {
-        ctx.drawImage(blockImage, px, py, BLOCK, BLOCK);
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, px, py, BLOCK, BLOCK);
       } else {
-        ctx.fillStyle = color || "#ffffff";
+        ctx.fillStyle = color;
         ctx.fillRect(px, py, BLOCK - 1, BLOCK - 1);
       }
     }
@@ -282,17 +311,25 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Flag background
+      drawFlagBackground();
+
       // board
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          if (board[r][c]) drawCell(c, r, board[r][c]);
+          const cell = board[r][c];
+          if (cell) drawCell(c, r, cell);
         }
       }
 
       // active piece
       if (currentPiece && !gameOver) {
+        const tempCell = {
+          color: currentPiece.color,
+          imgIndex: currentPiece.imgIndex
+        };
         for (const [cx, cy] of currentPiece.cells) {
-          drawCell(currentPiece.x + cx, currentPiece.y + cy, currentPiece.color);
+          drawCell(currentPiece.x + cx, currentPiece.y + cy, tempCell);
         }
       }
 
