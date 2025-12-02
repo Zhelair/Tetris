@@ -59,7 +59,7 @@
       filter: brightness(1.1);
     }
 
-    /* ГОЛЕМИ, удобни бутони за телефон */
+    /* Big, touch-friendly buttons */
     .touch-controls {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -76,7 +76,7 @@
       font-weight: bold;
     }
 
-    /* По-малки служебни бутони */
+    /* System buttons */
     .system-controls {
       display: flex;
       flex-wrap: wrap;
@@ -154,7 +154,7 @@
         ← → местене, ↓ падане, ↑ завъртане, Space = твърдо пускане
       </div>
 
-      <!-- ОСНОВНИ КОНТРОЛИ ЗА ДОКОСВАНЕ -->
+      <!-- TOUCH CONTROLS -->
       <div class="touch-controls">
         <button data-action="left">◀</button>
         <button data-action="down">⬇</button>
@@ -163,7 +163,7 @@
         <button data-action="drop">⤓</button>
       </div>
 
-      <!-- СИСТЕМНИ БУТОНИ -->
+      <!-- SYSTEM BUTTONS -->
       <div class="system-controls">
         <button id="restart">Рестарт</button>
         <button id="pause">Пауза</button>
@@ -226,33 +226,36 @@
     let fallSpeed = BASE_SPEED;
     let animationTime = 0;
 
-    // Тълпа
+    // Crowd
     let crowdActive = false;
     let crowdTimer = 0;
 
-    // TV "Всичко е наред"
+    // TV "All is fine"
     let spinActive = false;
     let spinNextTime = null;
     let spinEndTime = 0;
 
-    // Гняв / Генерална стачка
+    // Rage / General strike
     const RAGE_MAX = 5;
     let rage = 0;
 
-    // Разклащане на екрана
+    // Screen shake
     let shakeTimer = 0;
 
-    // Проверка от ЕС
+    // EU inspection
     let inspectionActive = false;
     let inspectionTimer = 0;
-    let inspectionStep = 0;  // за ~на всеки 1.5 нива
+    let inspectionStep = 0;
 
-    // Купен вот – автобус
+    // Bus (bought vote)
     let busEffect = null;
 
-    // Европейски фондове – забавяне
+    // EU funds slowdown
     let euSlowActive = false;
     let euSlowEndTime = 0;
+
+    // Level 7 final sprint
+    let finalFastMode = false;
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -271,11 +274,11 @@
     function rotate([x,y]) { return [y,-x]; }
     function rotateShape(cells) { return cells.map(rotate); }
 
-    // Прасешка бомба / EU бонус / нормални фигури
+    // Spawn pieces: pig bomb / EU bonus / normal
     function spawnPiece() {
       const rnd = Math.random();
 
-      // 8% шанс – прасешка бомба
+      // Pig bomb
       if (rnd < 0.08) {
         const imgIndex = Math.floor(Math.random() * boikoImages.length);
         return {
@@ -287,18 +290,18 @@
         };
       }
 
-      // 5% шанс – Европейски фондове (EU бонус)
+      // EU funds bonus
       if (rnd < 0.13) {
         return {
           x: Math.floor(COLS/2),
           y: 0,
           cells: [[0,0]],
-          imgIndex: 0,   // не се ползва
+          imgIndex: 0,
           type: "euBonus"
         };
       }
 
-      // Нормални фигури
+      // Normal piece (with possible cash cell)
       const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
       const imgIndex = Math.floor(Math.random() * boikoImages.length);
       const cells = shape.cells.map(c=>[...c]);
@@ -308,10 +311,10 @@
         cells,
         imgIndex,
         type: "normal",
-        cashIndex: -1   // индекс на "евро в нощното шкафче" в тази фигура
+        cashIndex: -1
       };
 
-      // шанс някое блокче да е чекмедже с евро
+      // chance for "Euro in the nightstand"
       if (Math.random() < 0.18) {
         piece.cashIndex = Math.floor(Math.random() * cells.length);
       }
@@ -337,16 +340,15 @@
         const y = piece.y + cy;
         let cell = { imgIndex: piece.imgIndex };
         if (piece.cashIndex === i) {
-          cell.cash = true;  // Евро в нощното шкафче
+          cell.cash = true;
         }
         board[y][x] = cell;
       }
     }
 
-    // 🔁 По-умни попъпи – подреждаме ги нагоре, когато има много
+    // Smarter popups – push them up if many
     function addPopup(text,row,center=false) {
       const active = popups.length;
-      // колкото повече има, толкова по-нагоре я вдигаме
       const y = row - 0.6 * active;
       popups.push({ x:1.5, y, text, life:300, center });
     }
@@ -367,7 +369,6 @@
       }
     }
 
-    // Тълпа – чисти още един ред
     function triggerCrowdPower() {
       const rowsWithBlocks = [];
       for (let r=0; r<ROWS; r++) {
@@ -408,7 +409,6 @@
       addPopup("МЕГА БУМ!", 0.5, true);
     }
 
-    // Прасешки бонус – при 3+ реда
     function triggerPigBonus() {
       const rowsWithBlocks = [];
       for (let r=0; r<ROWS; r++) {
@@ -432,7 +432,6 @@
       }
     }
 
-    // Прасешка бомба – кръстосано чистене
     function triggerPigBombExplosion(cx, cy) {
       const positions = [
         [cx, cy],
@@ -462,7 +461,7 @@
       }
     }
 
-    // Купен вот – автобус чисти ред
+    // Bus – bought vote
     function triggerBusRowClear() {
       const rowsWithBlocks = [];
       for (let r=0; r<ROWS; r++) {
@@ -472,7 +471,7 @@
       }
       if (rowsWithBlocks.length === 0) return;
 
-      const row = rowsWithBlocks[rowsWithBlocks.length - 1]; // най-долният
+      const row = rowsWithBlocks[rowsWithBlocks.length - 1];
       board.splice(row, 1);
       board.unshift(new Array(COLS).fill(null));
 
@@ -482,10 +481,9 @@
       addPopup("Купен вот (автобус)", row, true);
       addParticlesForRow(row);
 
-      // 30 секунди бавна анимация през целия екран
-      const distance = WIDTH + BLOCK * 8; // от -4 блока до +4 отвъд
+      const distance = WIDTH + BLOCK * 8;
       const durationMs = 30000;
-      const speed = distance / durationMs; // пиксели/мс
+      const speed = distance / durationMs;
 
       busEffect = {
         row,
@@ -495,23 +493,26 @@
       };
     }
 
-    // Европейски фондове – забавяне
     function triggerEUSlowdown() {
       euSlowActive = true;
       const now = performance.now ? performance.now() : Date.now();
-      euSlowEndTime = now + 20000; // 20 секунди
+      euSlowEndTime = now + 20000;
       updateFallSpeed();
       addPopup("Европейски фондове – играта се забавя", ROWS/2, true);
     }
 
     function updateFallSpeed() {
-      let normal = Math.max(150, BASE_SPEED - (level-1)*50);
-      if (euSlowActive) normal *= 1.8; // по-бавно падане
-      if (spinActive) normal *= 2;     // още по-бавно при TV
+      let normal = Math.max(150, BASE_SPEED - (level - 1) * 50);
+
+      if (euSlowActive) normal *= 1.8;
+      if (spinActive) normal *= 2;
+
+      // Level 7 final sprint overrides
+      if (finalFastMode) normal = 90;
+
       fallSpeed = normal;
     }
 
-    // Генерална стачка – чисти дъното
     function triggerGeneralStrike() {
       let toClear = 3;
       for (let r=ROWS-1; r>=0 && toClear>0; r--) {
@@ -528,18 +529,19 @@
       shakeTimer = Math.max(shakeTimer, 25);
     }
 
-    // Проверка от ЕС
     function startEUInspection() {
       inspectionActive = true;
       inspectionTimer = 600;
       addPopup("Проверка от ЕС", 0.5, true);
     }
 
-    // Ниво на всеки 3 реда
+    // Level logic with cap at 7 and final sprint
     function levelUpIfNeeded() {
       const LINES_PER_LEVEL = 3;
 
-      const newLevel = Math.floor(linesClearedTotal / LINES_PER_LEVEL) + 1;
+      let newLevel = Math.floor(linesClearedTotal / LINES_PER_LEVEL) + 1;
+      if (newLevel > 7) newLevel = 7;
+
       if (newLevel !== level) {
         level = newLevel;
         levelEl.textContent = level;
@@ -548,7 +550,6 @@
         scoreEl.textContent = score;
         triggerCrowdPower();
 
-        // Проверка от ЕС ~на всеки 1.5 нива, след ниво 2
         if (level >= 2) {
           inspectionStep += 1;
           if (inspectionStep >= 1.5) {
@@ -557,8 +558,14 @@
           }
         }
 
+        if (level === 7 && !finalFastMode) {
+          finalFastMode = true;
+          addPopup("НИВО 7 – финален спринт!", 1, true);
+        } else if (level < 7) {
+          addPopup("НИВО " + level, 1, true);
+        }
+
         updateFallSpeed();
-        addPopup("НИВО " + level, 1, true);
       }
     }
 
@@ -568,7 +575,6 @@
 
       for (let r=ROWS-1; r>=0; r--) {
         if (board[r].every(c=>c!==null)) {
-          // Проверка дали в този ред има чекмедже с евро
           let hasCash = board[r].some(cell => cell && cell.cash);
 
           board.splice(r,1);
@@ -581,7 +587,6 @@
           addPopup("Корупция -1", r, true);
           addParticlesForRow(r);
 
-          // Евро в нощното шкафче – бонус
           if (hasCash) {
             score += 300;
             scoreEl.textContent = score;
@@ -597,33 +602,28 @@
         }
       }
 
-      // Гняв
       if (clearedNow > 0) {
         rage += clearedNow;
         if (rage > RAGE_MAX) rage = RAGE_MAX;
         rageEl.textContent = rage + " / " + RAGE_MAX;
       }
 
-      // Прасешки бонус – 3+ реда наведнъж
       if (clearedNow >= 3) {
         triggerPigBonus();
       }
 
-      // Генерална стачка, ако гневът е макс
       if (rage >= RAGE_MAX) {
         triggerGeneralStrike();
         rage = 0;
         rageEl.textContent = "0 / " + RAGE_MAX;
       }
 
-      // Тълпа – шанс
       if (clearedNow >= 1) {
         if (Math.random() < 0.7) {
           triggerCrowdPower();
         }
       }
 
-      // Прост протестен звук
       if (clearedNow >= 2 && chant) {
         try {
           chant.currentTime = 0;
@@ -631,12 +631,10 @@
         } catch(e){}
       }
 
-      // Level up / EU инспекция
       if (clearedNow > 0) {
         levelUpIfNeeded();
       }
 
-      // Купен вот – на всеки 3 изчистени реда общо
       const prevBlock = Math.floor(prevTotal / 3);
       const newBlock = Math.floor(linesClearedTotal / 3);
       if (newBlock > prevBlock) {
@@ -662,7 +660,6 @@
         ctx.fillRect(px,py,BLOCK,BLOCK);
       }
 
-      // Евро в нощното шкафче – визуален ефект
       if (cell.cash) {
         ctx.strokeStyle="rgba(255,215,0,0.95)";
         ctx.lineWidth=2;
@@ -746,7 +743,6 @@
         }
       }
 
-      // Попъпи
       popups.forEach(p=>{
         ctx.save();
         ctx.font="13px Arial"; 
@@ -768,7 +764,6 @@
       });
       popups=popups.filter(p=>p.life>0);
 
-      // Частици
       particles.forEach(pt=>{
         pt.x+=pt.vx;
         pt.y+=pt.vy;
@@ -784,7 +779,6 @@
       });
       particles=particles.filter(pt=>pt.life>0);
 
-      // Тълпа отдолу
       if (crowdActive) {
         const baseY = HEIGHT - 6;
         const personWidth = BLOCK * 0.5;
@@ -798,18 +792,15 @@
         if (crowdTimer <= 0) crowdActive = false;
       }
 
-      // Автобус "Купен вот"
       if (busEffect) {
         const y = busEffect.row * BLOCK + BLOCK * 0.1;
         ctx.save();
         ctx.fillStyle = "rgba(255,220,0,0.95)";
         ctx.fillRect(busEffect.x, y, BLOCK*4, BLOCK*0.8);
-        // прозорци
         ctx.fillStyle = "#004488";
         for (let i=0;i<3;i++) {
           ctx.fillRect(busEffect.x + 4 + i*BLOCK, y+4, BLOCK-8, BLOCK*0.35);
         }
-        // гуми
         ctx.fillStyle = "#000";
         ctx.beginPath();
         ctx.arc(busEffect.x + BLOCK*0.8, y+BLOCK*0.8, 3, 0, Math.PI*2);
@@ -818,7 +809,6 @@
         ctx.restore();
       }
 
-      // Game over
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
@@ -829,7 +819,6 @@
         ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
       }
 
-      // TV overlay
       if (spinActive && !gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.75)";
         const barHeight = 24;
@@ -840,7 +829,6 @@
         ctx.fillText("TV: Всичко е наред! (забавен кадър)", WIDTH/2, 16);
       }
 
-      // Проверка от ЕС – центриран прозорец
       if (inspectionActive && !gameOver) {
         const boxW = WIDTH * 0.9;
         const boxH = HEIGHT * 0.25;
@@ -855,7 +843,6 @@
         ctx.fillText("Проверка от ЕС: играта е замразена", WIDTH/2, HEIGHT/2 + 4);
       }
 
-      // Пауза
       if (paused && !gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.6)";
         ctx.fillRect(0,HEIGHT/2-35,WIDTH,70);
@@ -864,7 +851,6 @@
         ctx.fillText("Пауза",WIDTH/2,HEIGHT/2+5);
       }
 
-      // Хаштаг
       ctx.font="11px Arial"; ctx.textAlign="right";
       ctx.fillStyle="rgba(255,255,255,0.6)";
       ctx.fillText("#Оставка2025",WIDTH-3,HEIGHT-3);
@@ -879,7 +865,6 @@
         if (currentPiece.type === "pigBomb") {
           triggerPigBombExplosion(currentPiece.x, currentPiece.y);
         } else if (currentPiece.type === "euBonus") {
-          // Европейски фондове – не оставя блок, само ефект
           triggerEUSlowdown();
         } else {
           merge(currentPiece);
@@ -899,7 +884,6 @@
         }
       }
 
-      // Проверка от ЕС – замразено
       if (inspectionActive) {
         inspectionTimer--;
         if (inspectionTimer <= 0) {
@@ -910,9 +894,8 @@
         }
       }
 
-      // Европейски фондове – изтичане
       if (euSlowActive) {
-        const now = t; // същата времева база
+        const now = t;
         if (now >= euSlowEndTime) {
           euSlowActive = false;
           updateFallSpeed();
@@ -920,7 +903,6 @@
         }
       }
 
-      // TV режим – само ако няма проверка
       if (!gameOver && !inspectionActive) {
         if (!spinActive && t >= spinNextTime) {
           spinActive = true;
@@ -934,12 +916,11 @@
         }
       }
 
-      // Автобус движение – бавен за ~30 секунди
       if (busEffect) {
         if (busEffect.lastTime == null) {
           busEffect.lastTime = t;
         } else {
-          const dt = t - busEffect.lastTime; // ms
+          const dt = t - busEffect.lastTime;
           busEffect.lastTime = t;
           busEffect.x += busEffect.speed * dt;
           if (busEffect.x > WIDTH + BLOCK * 4) {
@@ -1011,7 +992,7 @@
       } else {
         bgm.pause();
         musicPlaying=false;
-        toggleMusicBtn.textContent="Пусни музика";
+        toggleMusicBtn.textContent="Пусни музиката";
       }
     };
 
@@ -1029,6 +1010,8 @@
 
       rage = 0;
       rageEl.textContent = "0 / " + RAGE_MAX;
+
+      finalFastMode = false;
 
       updateFallSpeed();
 
