@@ -524,9 +524,12 @@
       });
     }
 
+    // ⭐ Level up every 3 lines instead of 5
     // Level up rewards: bonus score + guaranteed crowd power + sometimes EU inspection
     function levelUpIfNeeded() {
-      const newLevel = Math.floor(linesClearedTotal / 5) + 1;
+      const LINES_PER_LEVEL = 3;
+
+      const newLevel = Math.floor(linesClearedTotal / LINES_PER_LEVEL) + 1;
       if (newLevel !== level) {
         level = newLevel;
         levelEl.textContent = level;
@@ -535,8 +538,8 @@
         scoreEl.textContent = score;
         triggerCrowdPower();
 
-        // every 2nd level, we call EU inspection
-        if (level >= 2 && level % 2 === 0) {
+        // EU inspection every 3rd level: 3, 6, 9, ...
+        if (level >= 3 && level % 3 === 0) {
           startEUInspection();
         }
 
