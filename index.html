@@ -76,7 +76,7 @@
       font-weight: bold;
     }
 
-    /* NEW: system controls row under main controls */
+    /* SMALLER SYSTEM CONTROLS BELOW */
     .system-controls {
       display: flex;
       flex-wrap: wrap;
@@ -145,21 +145,25 @@
         <div id="level" class="value">1</div>
       </div>
 
+      <div>
+        <div class="label">Rage:</div>
+        <div id="rage" class="value">0 / 10</div>
+      </div>
+
       <div style="font-size:10px;opacity:0.9;max-width:220px;">
         ← → move, ↓ drop, ↑ rotate, Space = hard drop
       </div>
 
-      <!-- MAIN TOUCH CONTROLS (big, for thumbs) -->
+      <!-- MAIN TOUCH CONTROLS -->
       <div class="touch-controls">
         <button data-action="left">◀</button>
         <button data-action="down">⬇</button>
         <button data-action="right">▶</button>
         <button data-action="rotate">⟳</button>
         <button data-action="drop">⤓</button>
-        <!-- last grid cell left empty for spacing -->
       </div>
 
-      <!-- SMALLER SYSTEM CONTROLS BELOW -->
+      <!-- SYSTEM CONTROLS -->
       <div class="system-controls">
         <button id="restart">Restart</button>
         <button id="pause">Pause</button>
@@ -201,6 +205,7 @@
 
     const scoreEl = document.getElementById("score");
     const levelEl = document.getElementById("level");
+    const rageEl = document.getElementById("rage");
     const bgm = document.getElementById("bgm");
     const chant = document.getElementById("chant");
     const toggleMusicBtn = document.getElementById("toggleMusic");
@@ -230,6 +235,13 @@
     let spinActive = false;
     let spinNextTime = null;
     let spinEndTime = 0;
+
+    // Rage / General strike
+    const RAGE_MAX = 10;
+    let rage = 0;
+
+    // Screen shake
+    let shakeTimer = 0;
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -351,6 +363,47 @@
       fallSpeed = spinActive ? normal * 2 : normal;
     }
 
+    // Pig bonus: on 4+ line clears
+    function triggerPigBonus() {
+      const rowsWithBlocks = [];
+      for (let r=0; r<ROWS; r++) {
+        if (board[r].some(c => c !== null)) {
+          rowsWithBlocks.push(r);
+        }
+      }
+      let extraCleared = 0;
+      while (rowsWithBlocks.length > 0 && extraCleared < 2) {
+        const idx = Math.floor(Math.random() * rowsWithBlocks.length);
+        const r = rowsWithBlocks.splice(idx,1)[0];
+        board.splice(r,1);
+        board.unshift(new Array(COLS).fill(null));
+        extraCleared++;
+      }
+      if (extraCleared > 0) {
+        score += extraCleared * 80;
+        scoreEl.textContent = score;
+        addPopup("Pig bonus!", 1, true);
+        shakeTimer = Math.max(shakeTimer, 12);
+      }
+    }
+
+    // General strike: clears bottom rows when rage full
+    function triggerGeneralStrike() {
+      let toClear = 3;
+      for (let r=ROWS-1; r>=0 && toClear>0; r--) {
+        if (board[r].some(c => c !== null)) {
+          board.splice(r,1);
+          board.unshift(new Array(COLS).fill(null));
+          toClear--;
+        }
+      }
+      score += 150;
+      scoreEl.textContent = score;
+      addPopup("GENERAL STRIKE!", 2, true);
+      addMegaExplosion();
+      shakeTimer = Math.max(shakeTimer, 25);
+    }
+
     // Level up rewards: bonus score + guaranteed crowd power
     function levelUpIfNeeded() {
       const newLevel = Math.floor(linesClearedTotal / 5) + 1;
@@ -395,8 +448,27 @@
         }
       }
 
+      // Rage meter
+      if (clearedNow > 0) {
+        rage += clearedNow;
+        if (rage > RAGE_MAX) rage = RAGE_MAX;
+        rageEl.textContent = rage + " / " + RAGE_MAX;
+      }
+
+      // Pig bonus on 4+ lines
+      if (clearedNow >= 4) {
+        triggerPigBonus();
+      }
+
+      // General strike when rage full
+      if (rage >= RAGE_MAX) {
+        triggerGeneralStrike();
+        rage = 0;
+        rageEl.textContent = "0 / " + RAGE_MAX;
+      }
+
+      // Crowd power
       if (clearedNow >= 1) {
-        // 70% chance to trigger crowd power
         if (Math.random() < 0.7) {
           triggerCrowdPower();
         }
@@ -459,6 +531,16 @@
 
     function draw() {
       ctx.clearRect(0,0,WIDTH,HEIGHT);
+
+      ctx.save();
+      // Screen shake
+      if (shakeTimer > 0) {
+        const dx = (Math.random() - 0.5) * 4;
+        const dy = (Math.random() - 0.5) * 4;
+        ctx.translate(dx, dy);
+        shakeTimer--;
+      }
+
       drawFlagBackground();
 
       for (let r=0;r<ROWS;r++)
@@ -558,6 +640,8 @@
       ctx.font="11px Arial"; ctx.textAlign="right";
       ctx.fillStyle="rgba(255,255,255,0.6)";
       ctx.fillText("#Оставка2025",WIDTH-3,HEIGHT-3);
+
+      ctx.restore();
     }
 
     function stepDown() {
@@ -678,6 +762,9 @@
       spinNextTime = null;
       spinEndTime = 0;
 
+      rage = 0;
+      rageEl.textContent = "0 / " + RAGE_MAX;
+
       updateFallSpeed();
 
       scoreEl.textContent = score;
@@ -690,6 +777,7 @@
 
       crowdActive = false;
       crowdTimer = 0;
+      shakeTimer = 0;
 
       draw();
     }
