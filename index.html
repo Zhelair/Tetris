@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
   <meta charset="UTF-8">
   <title>Protest Tetris</title>
@@ -59,7 +59,7 @@
       filter: brightness(1.1);
     }
 
-    /* BIG, comfy touch controls */
+    /* ГОЛЕМИ, удобни бутони за телефон */
     .touch-controls {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -76,7 +76,7 @@
       font-weight: bold;
     }
 
-    /* SMALLER SYSTEM CONTROLS BELOW */
+    /* По-малки служебни бутони */
     .system-controls {
       display: flex;
       flex-wrap: wrap;
@@ -136,30 +136,25 @@
 
     <div class="side-panel">
       <div>
-        <div class="label">Corruption cleared:</div>
+        <div class="label">Изчистена корупция:</div>
         <div id="score" class="value">0</div>
       </div>
 
       <div>
-        <div class="label">Level:</div>
+        <div class="label">Ниво:</div>
         <div id="level" class="value">1</div>
       </div>
 
       <div>
-        <div class="label">Rage:</div>
+        <div class="label">Гняв:</div>
         <div id="rage" class="value">0 / 5</div>
       </div>
 
-      <div>
-        <div class="label">Bribe:</div>
-        <div id="bribe" class="value">░░░░░░░░░░ (0/10)</div>
-      </div>
-
       <div style="font-size:10px;opacity:0.9;max-width:220px;">
-        ← → move, ↓ drop, ↑ rotate, Space = hard drop
+        ← → местене, ↓ падане, ↑ завъртане, Space = твърдо пускане
       </div>
 
-      <!-- MAIN TOUCH CONTROLS -->
+      <!-- ОСНОВНИ КОНТРОЛИ ЗА ДОКОСВАНЕ -->
       <div class="touch-controls">
         <button data-action="left">◀</button>
         <button data-action="down">⬇</button>
@@ -168,11 +163,11 @@
         <button data-action="drop">⤓</button>
       </div>
 
-      <!-- SYSTEM CONTROLS -->
+      <!-- СИСТЕМНИ БУТОНИ -->
       <div class="system-controls">
-        <button id="restart">Restart</button>
-        <button id="pause">Pause</button>
-        <button id="toggleMusic">Play music</button>
+        <button id="restart">Рестарт</button>
+        <button id="pause">Пауза</button>
+        <button id="toggleMusic">Пусни музика</button>
       </div>
     </div>
   </div>
@@ -184,7 +179,7 @@
     // ===== CONFIG =====
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK = 22;       // logical block size (small for phones)
+    const BLOCK = 22;
     const BASE_SPEED = 500;
 
     const WIDTH = COLS * BLOCK;
@@ -200,7 +195,6 @@
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
-    // Hi-DPI scaling for sharper Boiko tiles
     const dpr = window.devicePixelRatio || 1;
     canvas.width = WIDTH * dpr;
     canvas.height = HEIGHT * dpr;
@@ -211,7 +205,6 @@
     const scoreEl = document.getElementById("score");
     const levelEl = document.getElementById("level");
     const rageEl  = document.getElementById("rage");
-    const bribeEl = document.getElementById("bribe");
     const bgm = document.getElementById("bgm");
     const chant = document.getElementById("chant");
     const toggleMusicBtn = document.getElementById("toggleMusic");
@@ -233,30 +226,26 @@
     let fallSpeed = BASE_SPEED;
     let animationTime = 0;
 
-    // Protest Crowd state
+    // Тълпа
     let crowdActive = false;
     let crowdTimer = 0;
 
-    // Media Spin state (slow motion TV)
+    // TV "Всичко е наред"
     let spinActive = false;
     let spinNextTime = null;
     let spinEndTime = 0;
 
-    // Rage / General strike
+    // Гняв / Генерална стачка
     const RAGE_MAX = 5;
     let rage = 0;
 
-    // Bribe slider
-    const BRIBE_MAX = 10;
-    let bribe = 0;
-
-    // Screen shake
+    // Разклащане на екрана
     let shakeTimer = 0;
 
-    // EU Inspection
+    // Проверка от ЕС
     let inspectionActive = false;
-    let inspectionTimer = 0; // in frames
-    let inspectionStep = 0;  // for approx. every 1.5 levels
+    let inspectionTimer = 0;
+    let inspectionStep = 0;  // за ~на всеки 1.5 нива
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -275,15 +264,15 @@
     function rotate([x,y]) { return [y,-x]; }
     function rotateShape(cells) { return cells.map(rotate); }
 
-    // Pig Bomb: sometimes spawn a single-block special piece
+    // Прасешка бомба – понякога едно блокче
     function spawnPiece() {
-      const isPigBomb = Math.random() < 0.08; // ~8% chance
+      const isPigBomb = Math.random() < 0.08;
       if (isPigBomb) {
         const imgIndex = Math.floor(Math.random() * boikoImages.length);
         return {
           x: Math.floor(COLS/2),
           y: 0,
-          cells: [[0,0]],      // single block
+          cells: [[0,0]],
           imgIndex,
           type: "pigBomb"
         };
@@ -317,9 +306,8 @@
       }
     }
 
-    // center=true => horizontally centered text
     function addPopup(text,row,center=false) {
-      popups.push({ x:1.5, y:row, text, life:120, center }); // life increased from 60 -> 120
+      popups.push({ x:1.5, y:row, text, life:120, center });
     }
 
     function addParticlesForRow(row) {
@@ -338,51 +326,7 @@
       }
     }
 
-    // Bribe UI
-    function updateBribeUI() {
-      const fill = Math.round((bribe / BRIBE_MAX) * 10);
-      const bar = "█".repeat(fill) + "░".repeat(10 - fill);
-      bribeEl.textContent = `${bar} (${bribe}/${BRIBE_MAX})`;
-    }
-
-    function triggerBribeBackfire() {
-      // pick random occupied cell
-      const occupied = [];
-      for (let r=0; r<ROWS; r++) {
-        for (let c=0; c<COLS; c++) {
-          if (board[r][c]) {
-            occupied.push({r,c});
-          }
-        }
-      }
-      if (occupied.length > 0) {
-        const chosen = occupied[Math.floor(Math.random() * occupied.length)];
-        const cell = board[chosen.r][chosen.c];
-        if (cell) cell.bribed = true; // mark for purple tint
-      }
-      score = Math.max(0, score - 30);
-      scoreEl.textContent = score;
-      popups.push({
-        x: 1.5,
-        y: 1,
-        text: "Bribe backfired!",
-        life: 120,
-        center: true
-      });
-    }
-
-    function increaseBribe(amount) {
-      bribe += amount;
-      if (bribe > BRIBE_MAX) bribe = BRIBE_MAX;
-      updateBribeUI();
-      if (bribe >= BRIBE_MAX) {
-        triggerBribeBackfire();
-        bribe = 0;
-        updateBribeUI();
-      }
-    }
-
-    // Protest Crowd power-up: clears one extra random non-empty row
+    // Тълпа – чисти още един ред
     function triggerCrowdPower() {
       const rowsWithBlocks = [];
       for (let r=0; r<ROWS; r++) {
@@ -399,17 +343,13 @@
       score += 50;
       scoreEl.textContent = score;
 
-      addPopup("Crowd power!", r, true);
+      addPopup("Сила на тълпата!", r, true);
       addParticlesForRow(r);
 
       crowdActive = true;
-      crowdTimer = 120; // frames
-
-      // crowd power increases bribe slightly
-      increaseBribe(1);
+      crowdTimer = 120;
     }
 
-    // Mega explosion for every 5th total cleared line
     function addMegaExplosion() {
       for (let i=0; i<250; i++) {
         const x = Math.random() * WIDTH;
@@ -427,13 +367,13 @@
       popups.push({
         x: 1.5,
         y: 0.5,
-        text: "MEGA BOOM!",
+        text: "МЕГА БУМ!",
         life: 140,
         center: true
       });
     }
 
-    // Pig bonus: on 3+ line clears
+    // Прасешки бонус – при 3+ реда
     function triggerPigBonus() {
       const rowsWithBlocks = [];
       for (let r=0; r<ROWS; r++) {
@@ -452,14 +392,12 @@
       if (extraCleared > 0) {
         score += extraCleared * 80;
         scoreEl.textContent = score;
-        addPopup("Pig bonus!", 1, true);
+        addPopup("Прасешки бонус!", 1, true);
         shakeTimer = Math.max(shakeTimer, 12);
-        // pig bonus also raises bribe
-        increaseBribe(2);
       }
     }
 
-    // Pig Bomb explosion (cross shape)
+    // Прасешка бомба – кръстосано чистене
     function triggerPigBombExplosion(cx, cy) {
       const positions = [
         [cx, cy],
@@ -476,7 +414,7 @@
       popups.push({
         x: 1.5,
         y: 0.5,
-        text: "Pig bomb!",
+        text: "Прасешка бомба!",
         life: 120,
         center: true
       });
@@ -497,11 +435,10 @@
 
     function updateFallSpeed() {
       const normal = Math.max(150, BASE_SPEED - (level-1)*50);
-      // If TV spin is active, go into slow motion (larger interval)
       fallSpeed = spinActive ? normal * 2 : normal;
     }
 
-    // General strike: clears bottom rows when rage full
+    // Генерална стачка – чисти дъното
     function triggerGeneralStrike() {
       let toClear = 3;
       for (let r=ROWS-1; r>=0 && toClear>0; r--) {
@@ -516,7 +453,7 @@
       popups.push({
         x: 1.5,
         y: 2,
-        text: "GENERAL STRIKE!",
+        text: "Генерална стачка!",
         life: 140,
         center: true
       });
@@ -524,21 +461,20 @@
       shakeTimer = Math.max(shakeTimer, 25);
     }
 
-    // EU Inspection – freeze game for ~10 seconds
+    // Проверка от ЕС
     function startEUInspection() {
       inspectionActive = true;
-      inspectionTimer = 600; // about 10 seconds at 60fps
+      inspectionTimer = 600;
       popups.push({
         x: 1.5,
         y: 0.5,
-        text: "EU Inspection",
+        text: "Проверка от ЕС",
         life: 140,
         center: true
       });
     }
 
-    // ⭐ Level up every 3 lines instead of 5
-    // Level up rewards: bonus score + guaranteed crowd power + EU inspection approx every 1.5 levels
+    // Ниво на всеки 3 реда
     function levelUpIfNeeded() {
       const LINES_PER_LEVEL = 3;
 
@@ -551,7 +487,7 @@
         scoreEl.textContent = score;
         triggerCrowdPower();
 
-        // EU inspection: from level 2 onwards, approx every 1.5 levels
+        // Проверка от ЕС ~на всеки 1.5 нива, след ниво 2
         if (level >= 2) {
           inspectionStep += 1;
           if (inspectionStep >= 1.5) {
@@ -564,7 +500,7 @@
         popups.push({
           x: 2,
           y: 1,
-          text: "LEVEL " + level,
+          text: "НИВО " + level,
           life: 140,
           center: true
         });
@@ -582,7 +518,7 @@
           linesClearedTotal++;
           clearedNow++;
 
-          addPopup("CORRUPTION -1", r, true);
+          addPopup("Корупция -1", r, true);
           addParticlesForRow(r);
 
           if (linesClearedTotal % 5 === 0) {
@@ -593,26 +529,22 @@
         }
       }
 
-      // Rage meter
       if (clearedNow > 0) {
         rage += clearedNow;
         if (rage > RAGE_MAX) rage = RAGE_MAX;
         rageEl.textContent = rage + " / " + RAGE_MAX;
       }
 
-      // Pig bonus on 3+ lines
       if (clearedNow >= 3) {
         triggerPigBonus();
       }
 
-      // General strike when rage full
       if (rage >= RAGE_MAX) {
         triggerGeneralStrike();
         rage = 0;
         rageEl.textContent = "0 / " + RAGE_MAX;
       }
 
-      // Crowd power chance
       if (clearedNow >= 1) {
         if (Math.random() < 0.7) {
           triggerCrowdPower();
@@ -644,11 +576,7 @@
       if (img && img.complete && img.naturalWidth>0) {
         ctx.drawImage(img,px,py,BLOCK,BLOCK);
       }
-      // bribed overlay
-      if (cell.bribed) {
-        ctx.fillStyle = "rgba(140,0,190,0.4)";
-        ctx.fillRect(px,py,BLOCK,BLOCK);
-      }
+      if (cell.bribed) { /* вече не ползваме bribed, но ако има стари данни – игнорираме */ }
       ctx.strokeStyle="rgba(0,0,0,0.7)";
       ctx.lineWidth=1;
       ctx.strokeRect(px+0.5, py+0.5, BLOCK-1, BLOCK-1);
@@ -683,7 +611,6 @@
       ctx.clearRect(0,0,WIDTH,HEIGHT);
 
       ctx.save();
-      // Screen shake
       if (shakeTimer > 0) {
         const dx = (Math.random() - 0.5) * 4;
         const dy = (Math.random() - 0.5) * 4;
@@ -703,7 +630,7 @@
         }
       }
 
-      // Popups
+      // Попъпи
       popups.forEach(p=>{
         ctx.save();
         ctx.font="13px Arial"; 
@@ -725,7 +652,7 @@
       });
       popups=popups.filter(p=>p.life>0);
 
-      // Particles
+      // Частици
       particles.forEach(pt=>{
         pt.x+=pt.vx;
         pt.y+=pt.vy;
@@ -741,7 +668,7 @@
       });
       particles=particles.filter(pt=>pt.life>0);
 
-      // Protest Crowd silhouettes at bottom
+      // Тълпа отдолу
       if (crowdActive) {
         const baseY = HEIGHT - 6;
         const personWidth = BLOCK * 0.5;
@@ -755,7 +682,7 @@
         if (crowdTimer <= 0) crowdActive = false;
       }
 
-      // Game over overlay
+      // Game over
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
@@ -763,10 +690,10 @@
         ctx.textAlign="center";
         ctx.fillText("Оставка!",WIDTH/2,HEIGHT/2-5);
         ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
-        ctx.fillText("Натисни Restart",WIDTH/2,HEIGHT/2+20);
+        ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
       }
 
-      // Media Spin overlay (slow motion)
+      // TV overlay
       if (spinActive && !gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.75)";
         const barHeight = 24;
@@ -774,10 +701,10 @@
         ctx.font = "13px Arial";
         ctx.fillStyle = "#ffcc00";
         ctx.textAlign = "center";
-        ctx.fillText("TV: Всичко е наред! (slow motion)", WIDTH/2, 16);
+        ctx.fillText("TV: Всичко е наред! (забавен кадър)", WIDTH/2, 16);
       }
 
-      // EU Inspection overlay (centered box)
+      // Проверка от ЕС – центриран прозорец
       if (inspectionActive && !gameOver) {
         const boxW = WIDTH * 0.9;
         const boxH = HEIGHT * 0.25;
@@ -789,10 +716,10 @@
         ctx.font = "13px Arial";
         ctx.fillStyle = "#00ffea";
         ctx.textAlign = "center";
-        ctx.fillText("EU Inspection: Game frozen", WIDTH/2, HEIGHT/2 + 4);
+        ctx.fillText("Проверка от ЕС: играта е замразена", WIDTH/2, HEIGHT/2 + 4);
       }
 
-      // Pause overlay
+      // Пауза
       if (paused && !gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.6)";
         ctx.fillRect(0,HEIGHT/2-35,WIDTH,70);
@@ -801,7 +728,7 @@
         ctx.fillText("Пауза",WIDTH/2,HEIGHT/2+5);
       }
 
-      // Watermark
+      // Хаштаг
       ctx.font="11px Arial"; ctx.textAlign="right";
       ctx.fillStyle="rgba(255,255,255,0.6)";
       ctx.fillText("#Оставка2025",WIDTH-3,HEIGHT-3);
@@ -814,7 +741,6 @@
         currentPiece.y++;
       } else {
         if (currentPiece.type === "pigBomb") {
-          // center of bomb is its only cell
           triggerPigBombExplosion(currentPiece.x, currentPiece.y);
         } else {
           merge(currentPiece);
@@ -830,34 +756,31 @@
       if (!lastTick) {
         lastTick=t;
         if (spinNextTime === null) {
-          spinNextTime = t + 20000;  // first TV spin after 20s
+          spinNextTime = t + 20000;
         }
       }
 
-      // EU Inspection timer – freeze game while active
       if (inspectionActive) {
         inspectionTimer--;
         if (inspectionTimer <= 0) {
           inspectionActive = false;
-          // small reward
           score += 100;
           scoreEl.textContent = score;
           popups.push({
             x: 1.5,
             y: 0.5,
-            text: "Inspection passed",
+            text: "Проверката приключи",
             life: 140,
             center: true
           });
         }
       }
 
-      // Media Spin timing (slow motion) – only when not in inspection
       if (!gameOver && !inspectionActive) {
         if (!spinActive && t >= spinNextTime) {
           spinActive = true;
-          spinEndTime = t + 3000;      // 3s duration
-          spinNextTime = t + 20000;    // next spin in 20s
+          spinEndTime = t + 3000;
+          spinNextTime = t + 20000;
           updateFallSpeed();
           popups.push({
             x: 1.5,
@@ -869,8 +792,6 @@
         } else if (spinActive && t >= spinEndTime) {
           spinActive = false;
           updateFallSpeed();
-          // surviving TV event slightly increases bribe
-          increaseBribe(1);
         }
       }
 
@@ -915,7 +836,7 @@
     pauseBtn.onclick=()=>{
       if (gameOver) return;
       paused=!paused;
-      pauseBtn.textContent=paused?"Resume":"Pause";
+      pauseBtn.textContent=paused?"Продължи":"Пауза";
       if(!paused) lastTick=performance.now();
       draw();
     };
@@ -930,14 +851,14 @@
           if (p && p.then) {
             p.then(()=>{
               musicPlaying=true;
-              toggleMusicBtn.textContent="Pause music";
+              toggleMusicBtn.textContent="Спри музиката";
             }).catch(()=>{});
           }
         } catch(e){}
       } else {
         bgm.pause();
         musicPlaying=false;
-        toggleMusicBtn.textContent="Play music";
+        toggleMusicBtn.textContent="Пусни музика";
       }
     };
 
@@ -956,14 +877,11 @@
       rage = 0;
       rageEl.textContent = "0 / " + RAGE_MAX;
 
-      bribe = 0;
-      updateBribeUI();
-
       updateFallSpeed();
 
       scoreEl.textContent = score;
       levelEl.textContent = level;
-      pauseBtn.textContent="Pause";
+      pauseBtn.textContent="Пауза";
       lastTick = 0;
       popups = [];
       particles = [];
