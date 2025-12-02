@@ -61,12 +61,12 @@
 
     /* Big, touch-friendly buttons */
     .touch-controls {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 10px;
-      width: 100%;
-    }
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;        /* was 8px */
+    margin-top: 6px; /* was 10px */
+    width: 100%;
+}
 
     .touch-controls button {
       padding: 9px;        /* was 10px */
@@ -78,13 +78,13 @@
 
     /* System buttons */
     .system-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-      width: 100%;
-      justify-content: space-between;
-    }
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;        /* was 6px */
+    margin-top: 6px; /* was 10px */
+    width: 100%;
+    justify-content: space-between;
+}
 
     .system-controls button {
       flex: 1 1 30%;
