@@ -36,7 +36,6 @@
       background: transparent;
       border: 2px solid #555;
       display: block;
-      /* keep intrinsic pixel size */
     }
 
     .side-panel {
@@ -60,7 +59,7 @@
       filter: brightness(1.1);
     }
 
-    /* NEW: bigger, more comfy touch controls in a grid */
+    /* BIG, comfy touch controls */
     .touch-controls {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -72,9 +71,28 @@
     .touch-controls button {
       padding: 10px;
       font-size: 18px;
-      min-height: 48px;
+      min-height: 52px;
       border-radius: 10px;
       font-weight: bold;
+    }
+
+    /* NEW: system controls row under main controls */
+    .system-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .system-controls button {
+      flex: 1 1 30%;
+      padding: 6px;
+      font-size: 11px;
+      min-height: 34px;
+      border-radius: 8px;
+      font-weight: normal;
     }
 
     .label {
@@ -127,20 +145,25 @@
         <div id="level" class="value">1</div>
       </div>
 
-      <button id="restart">Restart</button>
-      <button id="pause">Pause</button>
-      <button id="toggleMusic">Play music</button>
-
-      <div style="font-size:10px;opacity:0.9;max-width:180px;">
+      <div style="font-size:10px;opacity:0.9;max-width:220px;">
         ← → move, ↓ drop, ↑ rotate, Space = hard drop
       </div>
 
+      <!-- MAIN TOUCH CONTROLS (big, for thumbs) -->
       <div class="touch-controls">
         <button data-action="left">◀</button>
         <button data-action="down">⬇</button>
         <button data-action="right">▶</button>
         <button data-action="rotate">⟳</button>
         <button data-action="drop">⤓</button>
+        <!-- last grid cell left empty for spacing -->
+      </div>
+
+      <!-- SMALLER SYSTEM CONTROLS BELOW -->
+      <div class="system-controls">
+        <button id="restart">Restart</button>
+        <button id="pause">Pause</button>
+        <button id="toggleMusic">Play music</button>
       </div>
     </div>
   </div>
@@ -203,7 +226,7 @@
     let crowdActive = false;
     let crowdTimer = 0;
 
-    // Media Spin state (now slow motion)
+    // Media Spin state (slow motion)
     let spinActive = false;
     let spinNextTime = null;
     let spinEndTime = 0;
@@ -328,14 +351,13 @@
       fallSpeed = spinActive ? normal * 2 : normal;
     }
 
-    // NEW: level up gives rewards
+    // Level up rewards: bonus score + guaranteed crowd power
     function levelUpIfNeeded() {
       const newLevel = Math.floor(linesClearedTotal / 5) + 1;
       if (newLevel !== level) {
         level = newLevel;
         levelEl.textContent = level;
 
-        // Reward: bonus score + guaranteed crowd power
         score += 200;
         scoreEl.textContent = score;
         triggerCrowdPower();
@@ -588,7 +610,6 @@
     function handleAction(a) {
       if (gameOver || paused) return;
 
-      // Normal controls (no inversion)
       if (a === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
       if (a === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
       if (a === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
