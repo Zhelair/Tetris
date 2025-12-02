@@ -247,6 +247,13 @@
     let inspectionTimer = 0;
     let inspectionStep = 0;  // за ~на всеки 1.5 нива
 
+    // Купен вот – автобус
+    let busEffect = null;
+
+    // Европейски фондове – забавяне
+    let euSlowActive = false;
+    let euSlowEndTime = 0;
+
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
       {cells:[[0,0],[0,1],[1,0],[1,1]]},
@@ -264,10 +271,12 @@
     function rotate([x,y]) { return [y,-x]; }
     function rotateShape(cells) { return cells.map(rotate); }
 
-    // Прасешка бомба – понякога едно блокче
+    // Прасешка бомба / EU бонус / нормални фигури
     function spawnPiece() {
-      const isPigBomb = Math.random() < 0.08;
-      if (isPigBomb) {
+      const rnd = Math.random();
+
+      // 8% шанс – прасешка бомба
+      if (rnd < 0.08) {
         const imgIndex = Math.floor(Math.random() * boikoImages.length);
         return {
           x: Math.floor(COLS/2),
@@ -278,15 +287,36 @@
         };
       }
 
+      // 5% шанс – Европейски фондове (EU бонус)
+      if (rnd < 0.13) {
+        return {
+          x: Math.floor(COLS/2),
+          y: 0,
+          cells: [[0,0]],
+          imgIndex: 0,   // не се ползва
+          type: "euBonus"
+        };
+      }
+
+      // Нормални фигури
       const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
       const imgIndex = Math.floor(Math.random() * boikoImages.length);
-      return {
+      const cells = shape.cells.map(c=>[...c]);
+      const piece = {
         x: Math.floor(COLS/2),
         y: 0,
-        cells: shape.cells.map(c=>[...c]),
+        cells,
         imgIndex,
-        type: "normal"
+        type: "normal",
+        cashIndex: -1   // индекс на "евро в нощното шкафче" в тази фигура
       };
+
+      // шанс някое блокче да е чекмедже с евро
+      if (Math.random() < 0.18) {
+        piece.cashIndex = Math.floor(Math.random() * cells.length);
+      }
+
+      return piece;
     }
 
     function valid(piece, dx=0, dy=0, newCells=null) {
@@ -301,8 +331,15 @@
     }
 
     function merge(piece) {
-      for (const [cx,cy] of piece.cells) {
-        board[piece.y+cy][piece.x+cx] = { imgIndex: piece.imgIndex };
+      for (let i=0; i<piece.cells.length; i++) {
+        const [cx,cy] = piece.cells[i];
+        const x = piece.x + cx;
+        const y = piece.y + cy;
+        let cell = { imgIndex: piece.imgIndex };
+        if (piece.cashIndex === i) {
+          cell.cash = true;  // Евро в нощното шкафче
+        }
+        board[y][x] = cell;
       }
     }
 
@@ -365,13 +402,7 @@
           mega: true
         });
       }
-      popups.push({
-        x: 1.5,
-        y: 0.5,
-        text: "МЕГА БУМ!",
-        life: 300,
-        center: true
-      });
+      addPopup("МЕГА БУМ!", 0.5, true);
     }
 
     // Прасешки бонус – при 3+ реда
@@ -412,13 +443,7 @@
           if (board[y][x]) board[y][x] = null;
         }
       });
-      popups.push({
-        x: 1.5,
-        y: 0.5,
-        text: "Прасешка бомба!",
-        life: 300,
-        center: true
-      });
+      addPopup("Прасешка бомба!", 0.5, true);
       shakeTimer = Math.max(shakeTimer, 16);
       for (let i=0; i<100; i++) {
         const ang = Math.random()*Math.PI*2;
@@ -434,9 +459,47 @@
       }
     }
 
+    // Купен вот – автобус чисти ред
+    function triggerBusRowClear() {
+      const rowsWithBlocks = [];
+      for (let r=0; r<ROWS; r++) {
+        if (board[r].some(c => c !== null)) {
+          rowsWithBlocks.push(r);
+        }
+      }
+      if (rowsWithBlocks.length === 0) return;
+
+      const row = rowsWithBlocks[rowsWithBlocks.length - 1]; // най-долният
+      board.splice(row, 1);
+      board.unshift(new Array(COLS).fill(null));
+
+      score += 100;
+      scoreEl.textContent = score;
+
+      addPopup("Купен вот (автобус)", row, true);
+      addParticlesForRow(row);
+
+      busEffect = {
+        row,
+        x: -BLOCK * 4,
+        life: 60
+      };
+    }
+
+    // Европейски фондове – забавяне
+    function triggerEUSlowdown() {
+      euSlowActive = true;
+      const now = performance.now ? performance.now() : Date.now();
+      euSlowEndTime = now + 20000; // 20 секунди
+      updateFallSpeed();
+      addPopup("Европейски фондове – играта се забавя", ROWS/2, true);
+    }
+
     function updateFallSpeed() {
-      const normal = Math.max(150, BASE_SPEED - (level-1)*50);
-      fallSpeed = spinActive ? normal * 2 : normal;
+      let normal = Math.max(150, BASE_SPEED - (level-1)*50);
+      if (euSlowActive) normal *= 1.8; // по-бавно падане
+      if (spinActive) normal *= 2;     // още по-бавно при TV
+      fallSpeed = normal;
     }
 
     // Генерална стачка – чисти дъното
@@ -451,13 +514,7 @@
       }
       score += 150;
       scoreEl.textContent = score;
-      popups.push({
-        x: 1.5,
-        y: 2,
-        text: "Генерална стачка!",
-        life: 300,
-        center: true
-      });
+      addPopup("Генерална стачка!", 2, true);
       addMegaExplosion();
       shakeTimer = Math.max(shakeTimer, 25);
     }
@@ -466,13 +523,7 @@
     function startEUInspection() {
       inspectionActive = true;
       inspectionTimer = 600;
-      popups.push({
-        x: 1.5,
-        y: 0.5,
-        text: "Проверка от ЕС",
-        life: 300,
-        center: true
-      });
+      addPopup("Проверка от ЕС", 0.5, true);
     }
 
     // Ниво на всеки 3 реда
@@ -498,20 +549,19 @@
         }
 
         updateFallSpeed();
-        popups.push({
-          x: 2,
-          y: 1,
-          text: "НИВО " + level,
-          life: 300,
-          center: true
-        });
+        addPopup("НИВО " + level, 1, true);
       }
     }
 
     function clearLines() {
       let clearedNow = 0;
+      const prevTotal = linesClearedTotal;
+
       for (let r=ROWS-1; r>=0; r--) {
         if (board[r].every(c=>c!==null)) {
+          // Проверка дали в този ред има чекмедже с евро
+          let hasCash = board[r].some(cell => cell && cell.cash);
+
           board.splice(r,1);
           board.unshift(new Array(COLS).fill(null));
           score += 100;
@@ -522,6 +572,14 @@
           addPopup("Корупция -1", r, true);
           addParticlesForRow(r);
 
+          // Евро в нощното шкафче – бонус
+          if (hasCash) {
+            score += 300;
+            scoreEl.textContent = score;
+            addPopup("Евро в нощното шкафче", r, true);
+            addParticlesForRow(r);
+          }
+
           if (linesClearedTotal % 5 === 0) {
             addMegaExplosion();
           }
@@ -530,36 +588,50 @@
         }
       }
 
+      // Гняв
       if (clearedNow > 0) {
         rage += clearedNow;
         if (rage > RAGE_MAX) rage = RAGE_MAX;
         rageEl.textContent = rage + " / " + RAGE_MAX;
       }
 
+      // Прасешки бонус – 3+ реда наведнъж
       if (clearedNow >= 3) {
         triggerPigBonus();
       }
 
+      // Генерална стачка, ако гневът е макс
       if (rage >= RAGE_MAX) {
         triggerGeneralStrike();
         rage = 0;
         rageEl.textContent = "0 / " + RAGE_MAX;
       }
 
+      // Тълпа – шанс
       if (clearedNow >= 1) {
         if (Math.random() < 0.7) {
           triggerCrowdPower();
         }
       }
 
+      // Прост протестен звук
       if (clearedNow >= 2 && chant) {
         try {
           chant.currentTime = 0;
           chant.play();
         } catch(e){}
       }
+
+      // Level up / EU инспекция
       if (clearedNow > 0) {
         levelUpIfNeeded();
+      }
+
+      // Купен вот – на всеки 3 изчистени реда общо
+      const prevBlock = Math.floor(prevTotal / 3);
+      const newBlock = Math.floor(linesClearedTotal / 3);
+      if (newBlock > prevBlock) {
+        triggerBusRowClear();
       }
     }
 
@@ -576,7 +648,22 @@
       ctx.save();
       if (img && img.complete && img.naturalWidth>0) {
         ctx.drawImage(img,px,py,BLOCK,BLOCK);
+      } else {
+        ctx.fillStyle="#ffffff";
+        ctx.fillRect(px,py,BLOCK,BLOCK);
       }
+
+      // Евро в нощното шкафче – визуален ефект
+      if (cell.cash) {
+        ctx.strokeStyle="rgba(255,215,0,0.95)";
+        ctx.lineWidth=2;
+        ctx.strokeRect(px+2, py+2, BLOCK-4, BLOCK-4);
+        ctx.fillStyle="#ffd700";
+        ctx.font="10px Arial";
+        ctx.textAlign="center";
+        ctx.fillText("€", px+BLOCK/2, py+BLOCK/2+3);
+      }
+
       ctx.strokeStyle="rgba(0,0,0,0.7)";
       ctx.lineWidth=1;
       ctx.strokeRect(px+0.5, py+0.5, BLOCK-1, BLOCK-1);
@@ -607,6 +694,22 @@
       ctx.restore();
     }
 
+    function drawEUCell(gridX, gridY) {
+      const px = gridX * BLOCK;
+      const py = gridY * BLOCK;
+      ctx.save();
+      ctx.fillStyle = "#003399";
+      ctx.fillRect(px, py, BLOCK, BLOCK);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px+2, py+2, BLOCK-4, BLOCK-4);
+      ctx.fillStyle = "#ffd700";
+      ctx.font = "10px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("EU", px + BLOCK/2, py + BLOCK/2 + 3);
+      ctx.restore();
+    }
+
     function draw() {
       ctx.clearRect(0,0,WIDTH,HEIGHT);
 
@@ -625,8 +728,12 @@
           if (board[r][c]) drawStaticCell(c,r,board[r][c]);
 
       if (!gameOver && currentPiece) {
-        for (const [cx,cy] of currentPiece.cells) {
-          drawRotatingCell(currentPiece.x+cx,currentPiece.y+cy,currentPiece.imgIndex);
+        if (currentPiece.type === "euBonus") {
+          drawEUCell(currentPiece.x, currentPiece.y);
+        } else {
+          for (const [cx,cy] of currentPiece.cells) {
+            drawRotatingCell(currentPiece.x+cx,currentPiece.y+cy,currentPiece.imgIndex);
+          }
         }
       }
 
@@ -680,6 +787,32 @@
         }
         crowdTimer--;
         if (crowdTimer <= 0) crowdActive = false;
+      }
+
+      // Автобус "Купен вот"
+      if (busEffect) {
+        const y = busEffect.row * BLOCK + BLOCK * 0.1;
+        ctx.save();
+        ctx.fillStyle = "rgba(255,220,0,0.95)";
+        ctx.fillRect(busEffect.x, y, BLOCK*4, BLOCK*0.8);
+        // прозорци
+        ctx.fillStyle = "#004488";
+        for (let i=0;i<3;i++) {
+          ctx.fillRect(busEffect.x + 4 + i*BLOCK, y+4, BLOCK-8, BLOCK*0.35);
+        }
+        // гуми
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(busEffect.x + BLOCK*0.8, y+BLOCK*0.8, 3, 0, Math.PI*2);
+        ctx.arc(busEffect.x + BLOCK*3.2, y+BLOCK*0.8, 3, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+
+        busEffect.x += 4;
+        busEffect.life--;
+        if (busEffect.life <= 0 || busEffect.x > WIDTH + BLOCK*4) {
+          busEffect = null;
+        }
       }
 
       // Game over
@@ -742,6 +875,9 @@
       } else {
         if (currentPiece.type === "pigBomb") {
           triggerPigBombExplosion(currentPiece.x, currentPiece.y);
+        } else if (currentPiece.type === "euBonus") {
+          // Европейски фондове – не оставя блок, само ефект
+          triggerEUSlowdown();
         } else {
           merge(currentPiece);
         }
@@ -767,14 +903,17 @@
           inspectionActive = false;
           score += 100;
           scoreEl.textContent = score;
-          // 🟡 ТУК ПРЕМЕСТИХМЕ ФРАЗАТА В ЦЕНТЪРА
-          popups.push({
-            x: 1.5,
-            y: ROWS/2,   // вертикален център
-            text: "Проверката приключи",
-            life: 300,
-            center: true
-          });
+          addPopup("Проверката приключи", ROWS/2, true);
+        }
+      }
+
+      // Европейски фондове – изтичане
+      if (euSlowActive) {
+        const now = t; // същата времева база
+        if (now >= euSlowEndTime) {
+          euSlowActive = false;
+          updateFallSpeed();
+          addPopup("Еврофондовете свършиха", ROWS/2, true);
         }
       }
 
@@ -785,13 +924,7 @@
           spinEndTime = t + 3000;
           spinNextTime = t + 20000;
           updateFallSpeed();
-          popups.push({
-            x: 1.5,
-            y: 0.5,
-            text: "TV: Всичко е наред!",
-            life: 300,
-            center: true
-          });
+          addPopup("TV: Всичко е наред!", 0.5, true);
         } else if (spinActive && t >= spinEndTime) {
           spinActive = false;
           updateFallSpeed();
@@ -897,6 +1030,10 @@
       inspectionActive = false;
       inspectionTimer = 0;
       inspectionStep = 0;
+
+      busEffect = null;
+      euSlowActive = false;
+      euSlowEndTime = 0;
 
       draw();
     }
