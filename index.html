@@ -256,6 +256,7 @@
     // EU Inspection
     let inspectionActive = false;
     let inspectionTimer = 0; // in frames
+    let inspectionStep = 0;  // for approx. every 1.5 levels
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -318,7 +319,7 @@
 
     // center=true => horizontally centered text
     function addPopup(text,row,center=false) {
-      popups.push({ x:1.5, y:row, text, life:60, center });
+      popups.push({ x:1.5, y:row, text, life:120, center }); // life increased from 60 -> 120
     }
 
     function addParticlesForRow(row) {
@@ -365,7 +366,7 @@
         x: 1.5,
         y: 1,
         text: "Bribe backfired!",
-        life: 70,
+        life: 120,
         center: true
       });
     }
@@ -419,7 +420,7 @@
           x,y,
           vx: Math.cos(ang)*sp,
           vy: Math.sin(ang)*sp - 1.5,
-          life: 60 + Math.random()*40,
+          life: 100 + Math.random()*40,
           mega: true
         });
       }
@@ -427,7 +428,7 @@
         x: 1.5,
         y: 0.5,
         text: "MEGA BOOM!",
-        life: 80,
+        life: 140,
         center: true
       });
     }
@@ -472,7 +473,13 @@
           if (board[y][x]) board[y][x] = null;
         }
       });
-      addPopup("Pig bomb!", 0.5, true);
+      popups.push({
+        x: 1.5,
+        y: 0.5,
+        text: "Pig bomb!",
+        life: 120,
+        center: true
+      });
       shakeTimer = Math.max(shakeTimer, 16);
       for (let i=0; i<100; i++) {
         const ang = Math.random()*Math.PI*2;
@@ -482,7 +489,7 @@
           y: cy*BLOCK + BLOCK/2,
           vx: Math.cos(ang)*sp,
           vy: Math.sin(ang)*sp - 1,
-          life: 50 + Math.random()*30,
+          life: 80 + Math.random()*30,
           mega: false
         });
       }
@@ -506,7 +513,13 @@
       }
       score += 150;
       scoreEl.textContent = score;
-      addPopup("GENERAL STRIKE!", 2, true);
+      popups.push({
+        x: 1.5,
+        y: 2,
+        text: "GENERAL STRIKE!",
+        life: 140,
+        center: true
+      });
       addMegaExplosion();
       shakeTimer = Math.max(shakeTimer, 25);
     }
@@ -519,13 +532,13 @@
         x: 1.5,
         y: 0.5,
         text: "EU Inspection",
-        life: 120,
+        life: 140,
         center: true
       });
     }
 
     // ⭐ Level up every 3 lines instead of 5
-    // Level up rewards: bonus score + guaranteed crowd power + sometimes EU inspection
+    // Level up rewards: bonus score + guaranteed crowd power + EU inspection approx every 1.5 levels
     function levelUpIfNeeded() {
       const LINES_PER_LEVEL = 3;
 
@@ -538,9 +551,13 @@
         scoreEl.textContent = score;
         triggerCrowdPower();
 
-        // EU inspection every 3rd level: 3, 6, 9, ...
-        if (level >= 3 && level % 3 === 0) {
-          startEUInspection();
+        // EU inspection: from level 2 onwards, approx every 1.5 levels
+        if (level >= 2) {
+          inspectionStep += 1;
+          if (inspectionStep >= 1.5) {
+            startEUInspection();
+            inspectionStep -= 1.5;
+          }
         }
 
         updateFallSpeed();
@@ -548,7 +565,7 @@
           x: 2,
           y: 1,
           text: "LEVEL " + level,
-          life: 80,
+          life: 140,
           center: true
         });
       }
@@ -702,7 +719,7 @@
         ctx.fillStyle="#ffea00";
         ctx.fillText(p.text,x,y);
 
-        p.y -= 0.03; 
+        p.y -= 0.02; 
         p.life--;
         ctx.restore();
       });
@@ -760,15 +777,19 @@
         ctx.fillText("TV: Всичко е наред! (slow motion)", WIDTH/2, 16);
       }
 
-      // EU Inspection overlay
+      // EU Inspection overlay (centered box)
       if (inspectionActive && !gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        const barHeight = 32;
-        ctx.fillRect(0, HEIGHT/2 - barHeight, WIDTH, barHeight*2);
-        ctx.font = "16px Arial";
+        const boxW = WIDTH * 0.9;
+        const boxH = HEIGHT * 0.25;
+        const boxX = (WIDTH - boxW) / 2;
+        const boxY = (HEIGHT - boxH) / 2;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+
+        ctx.font = "13px Arial";
         ctx.fillStyle = "#00ffea";
         ctx.textAlign = "center";
-        ctx.fillText("EU Inspection – Game frozen for review", WIDTH/2, HEIGHT/2 + 5);
+        ctx.fillText("EU Inspection: Game frozen", WIDTH/2, HEIGHT/2 + 4);
       }
 
       // Pause overlay
@@ -825,7 +846,7 @@
             x: 1.5,
             y: 0.5,
             text: "Inspection passed",
-            life: 80,
+            life: 140,
             center: true
           });
         }
@@ -842,7 +863,7 @@
             x: 1.5,
             y: 0.5,
             text: "TV: Всичко е наред!",
-            life: 80,
+            life: 140,
             center: true
           });
         } else if (spinActive && t >= spinEndTime) {
@@ -954,6 +975,7 @@
 
       inspectionActive = false;
       inspectionTimer = 0;
+      inspectionStep = 0;
 
       draw();
     }
