@@ -36,7 +36,7 @@
       background: transparent;
       border: 2px solid #555;
       display: block;
-      /* no width:100% – keep real pixel size */
+      /* we keep intrinsic size for phones */
     }
 
     .side-panel {
@@ -149,7 +149,7 @@
     // ===== CONFIG =====
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK = 22;       // logical block size
+    const BLOCK = 22;       // logical block size (small for phones)
     const BASE_SPEED = 500;
 
     const WIDTH = COLS * BLOCK;
@@ -165,7 +165,7 @@
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
-    // Hi-DPI scaling for sharper images
+    // Hi-DPI scaling for sharper Boiko tiles
     const dpr = window.devicePixelRatio || 1;
     canvas.width = WIDTH * dpr;
     canvas.height = HEIGHT * dpr;
@@ -195,6 +195,15 @@
     let linesClearedTotal = 0;
     let fallSpeed = BASE_SPEED;
     let animationTime = 0;
+
+    // Protest Crowd state
+    let crowdActive = false;
+    let crowdTimer = 0;
+
+    // Media Spin state (inverted controls)
+    let spinActive = false;
+    let spinNextTime = null;
+    let spinEndTime = 0;
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -241,7 +250,7 @@
       }
     }
 
-    // center=true => center horizontally on canvas
+    // center=true => horizontally centered text
     function addPopup(text,row,center=false) {
       popups.push({ x:1.5, y:row, text, life:60, center });
     }
@@ -262,6 +271,31 @@
       }
     }
 
+    // Protest Crowd power-up: clears one extra random non-empty row
+    function triggerCrowdPower() {
+      const rowsWithBlocks = [];
+      for (let r=0; r<ROWS; r++) {
+        if (board[r].some(cell => cell !== null)) {
+          rowsWithBlocks.push(r);
+        }
+      }
+      if (rowsWithBlocks.length === 0) return;
+
+      const r = rowsWithBlocks[Math.floor(Math.random() * rowsWithBlocks.length)];
+      board.splice(r, 1);
+      board.unshift(new Array(COLS).fill(null));
+
+      score += 50;
+      scoreEl.textContent = score;
+
+      addPopup("Crowd power!", r, true);
+      addParticlesForRow(r);
+
+      crowdActive = true;
+      crowdTimer = 120; // frames
+    }
+
+    // Mega explosion for every 5th total cleared line
     function addMegaExplosion() {
       for (let i=0; i<250; i++) {
         const x = Math.random() * WIDTH;
@@ -312,7 +346,7 @@
           linesClearedTotal++;
           clearedNow++;
 
-          addPopup("CORRUPTION -1", r, true); // center popup
+          addPopup("CORRUPTION -1", r, true);
           addParticlesForRow(r);
 
           if (linesClearedTotal % 5 === 0) {
@@ -322,6 +356,14 @@
           r++;
         }
       }
+
+      if (clearedNow >= 1) {
+        // 35% chance to trigger crowd power
+        if (Math.random() < 0.35) {
+          triggerCrowdPower();
+        }
+      }
+
       if (clearedNow >= 2 && chant) {
         try {
           chant.currentTime = 0;
@@ -391,7 +433,7 @@
         }
       }
 
-      // popups (center or left)
+      // Popups
       popups.forEach(p=>{
         ctx.save();
         ctx.font="13px Arial"; 
@@ -413,6 +455,7 @@
       });
       popups=popups.filter(p=>p.life>0);
 
+      // Particles
       particles.forEach(pt=>{
         pt.x+=pt.vx;
         pt.y+=pt.vy;
@@ -428,6 +471,21 @@
       });
       particles=particles.filter(pt=>pt.life>0);
 
+      // Protest Crowd silhouettes at bottom
+      if (crowdActive) {
+        const baseY = HEIGHT - 6;
+        const personWidth = BLOCK * 0.5;
+        const personHeight = 6;
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        for (let i=0;i<COLS;i++) {
+          const x = i*BLOCK + BLOCK*0.25;
+          ctx.fillRect(x, baseY-personHeight, personWidth, personHeight);
+        }
+        crowdTimer--;
+        if (crowdTimer <= 0) crowdActive = false;
+      }
+
+      // Game over overlay
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
@@ -438,6 +496,18 @@
         ctx.fillText("Натисни Restart",WIDTH/2,HEIGHT/2+20);
       }
 
+      // Media Spin overlay
+      if (spinActive && !gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        const barHeight = 24;
+        ctx.fillRect(0,0,WIDTH,barHeight);
+        ctx.font = "13px Arial";
+        ctx.fillStyle = "#ffcc00";
+        ctx.textAlign = "center";
+        ctx.fillText("TV: Всичко е наред! (controls inverted)", WIDTH/2, 16);
+      }
+
+      // Pause overlay
       if (paused && !gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.6)";
         ctx.fillRect(0,HEIGHT/2-35,WIDTH,70);
@@ -446,6 +516,7 @@
         ctx.fillText("Пауза",WIDTH/2,HEIGHT/2+5);
       }
 
+      // Watermark
       ctx.font="11px Arial"; ctx.textAlign="right";
       ctx.fillStyle="rgba(255,255,255,0.6)";
       ctx.fillText("#Оставка2025",WIDTH-3,HEIGHT-3);
@@ -463,51 +534,63 @@
 
     function update(t) {
       animationTime = t;
-      if (!lastTick) lastTick=t;
+      if (!lastTick) {
+        lastTick=t;
+        if (spinNextTime === null) {
+          spinNextTime = t + 20000;  // first TV spin after 20s
+        }
+      }
+
+      // Media Spin timing
+      if (!gameOver) {
+        if (!spinActive && t >= spinNextTime) {
+          spinActive = true;
+          spinEndTime = t + 5000;      // 5s duration
+          spinNextTime = t + 20000;    // next spin in 20s
+          popups.push({
+            x: 1.5,
+            y: 0.5,
+            text: "TV: Всичко е наред!",
+            life: 80,
+            center: true
+          });
+        } else if (spinActive && t >= spinEndTime) {
+          spinActive = false;
+        }
+      }
+
       if (!paused && !gameOver && t-lastTick>fallSpeed) {
-        stepDown(); lastTick=t;
+        stepDown(); 
+        lastTick=t;
       }
       draw();
       requestAnimationFrame(update);
     }
 
-function handleAction(a) {
-  if (gameOver || paused) return;
+    function handleAction(a) {
+      if (gameOver || paused) return;
 
-  if (a === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
-  if (a === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
-  if (a === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
-  if (a === "rotate") {
-    const rot = rotateShape(currentPiece.cells);
-    if (valid(currentPiece, 0, 0, rot)) currentPiece.cells = rot;
-  }
-  if (a === "drop") {
-    while (valid(currentPiece, 0, 1)) currentPiece.y++;
-    stepDown();
-  }
-
-  draw();
-}
-
-toggleMusicBtn.onclick = () => {
-  if (!bgm) return;
-  if (!musicPlaying) {
-    try {
-      const p = bgm.play();
-      if (p && p.then) {
-        p.then(() => {
-          musicPlaying = true;
-          toggleMusicBtn.textContent = "Pause music";
-        }).catch(() => {});
+      // If media spin active, invert left/right
+      let action = a;
+      if (spinActive) {
+        if (a === "left") action = "right";
+        else if (a === "right") action = "left";
       }
-    } catch(e){}
-  } else {
-    bgm.pause();
-    musicPlaying = false;
-    toggleMusicBtn.textContent = "Play music";
-  }
-};
 
+      if (action === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
+      if (action === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
+      if (action === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
+      if (action === "rotate") {
+        const rot = rotateShape(currentPiece.cells);
+        if (valid(currentPiece, 0, 0, rot)) currentPiece.cells = rot;
+      }
+      if (action === "drop") {
+        while (valid(currentPiece, 0, 1)) currentPiece.y++;
+        stepDown();
+      }
+
+      draw();
+    }
 
     document.addEventListener("keydown",e=>{
       if(e.code==="ArrowLeft")handleAction("left");
@@ -566,6 +649,14 @@ toggleMusicBtn.onclick = () => {
       popups = [];
       particles = [];
       animationTime = 0;
+
+      crowdActive = false;
+      crowdTimer = 0;
+
+      spinActive = false;
+      spinNextTime = null;
+      spinEndTime = 0;
+
       draw();
     }
 
