@@ -471,33 +471,43 @@
       requestAnimationFrame(update);
     }
 
-    function handleAction(a) {
-      if (gameOver || paused) return;
-      if (a==="left"&&valid(currentPiece,-1,0)) currentPiece.x--;
-      if (a==="right"&&valid(currentPiece,1,0)) currentPiece.x++;
-      if (a==="down"&&valid(currentPiece,0,1)) currentPiece.y++;
-      if (a==="rotate") {
-        const rot=rotateShape(currentPiece.cells);
-        if(valid(currentPiece,0,0,rot)) currentPiece.cells=rot;
-      }
-      if (a==="drop") {
-        while(valid(currentPiece,0,1)) currentPiece.y++;
-        stepDown();
-      }
-      draw();
+function handleAction(a) {
+  if (gameOver || paused) return;
 
-      if (!musicPlaying && bgm && bgm.paused) {
-        try {
-          const p = bgm.play();
-          if (p && p.then) {
-            p.then(()=>{
-              musicPlaying=true;
-              toggleMusicBtn.textContent="Pause music";
-            }).catch(()=>{});
-          }
-        } catch(e){}
+  if (a === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
+  if (a === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
+  if (a === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
+  if (a === "rotate") {
+    const rot = rotateShape(currentPiece.cells);
+    if (valid(currentPiece, 0, 0, rot)) currentPiece.cells = rot;
+  }
+  if (a === "drop") {
+    while (valid(currentPiece, 0, 1)) currentPiece.y++;
+    stepDown();
+  }
+
+  draw();
+}
+
+toggleMusicBtn.onclick = () => {
+  if (!bgm) return;
+  if (!musicPlaying) {
+    try {
+      const p = bgm.play();
+      if (p && p.then) {
+        p.then(() => {
+          musicPlaying = true;
+          toggleMusicBtn.textContent = "Pause music";
+        }).catch(() => {});
       }
-    }
+    } catch(e){}
+  } else {
+    bgm.pause();
+    musicPlaying = false;
+    toggleMusicBtn.textContent = "Play music";
+  }
+};
+
 
     document.addEventListener("keydown",e=>{
       if(e.code==="ArrowLeft")handleAction("left");
