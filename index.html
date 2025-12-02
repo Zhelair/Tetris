@@ -35,6 +35,8 @@
       background: transparent;
       border: 2px solid #555;
       max-width: 100%;
+      height: auto;
+      display: block;
     }
 
     .side-panel {
@@ -72,21 +74,6 @@
       border-radius: 6px;
     }
 
-    @media (max-width: 700px) {
-      .wrapper {
-        flex-direction: column;
-        align-items: center;
-      }
-      .side-panel {
-        width: 100%;
-        align-items: stretch;
-      }
-      #game {
-        width: 100%;
-        height: auto;
-      }
-    }
-
     .label {
       font-weight: bold;
       font-size: 14px;
@@ -95,6 +82,33 @@
     .value {
       font-size: 16px;
       margin-top: 1px;
+    }
+
+    /* Mobile layout tweaks */
+    @media (max-width: 700px) {
+      body {
+        justify-content: center;
+        align-items: flex-start;   /* anchor to top */
+        padding-top: 8px;
+      }
+
+      .wrapper {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 420px;          /* keeps content compact */
+        box-sizing: border-box;
+      }
+
+      .side-panel {
+        width: 100%;
+        align-items: stretch;
+      }
+
+      #game {
+        width: 100%;               /* scale nicely on phones */
+        height: auto;
+      }
     }
   </style>
 </head>
@@ -244,7 +258,6 @@
       }
     }
 
-    // Mega explosion across whole field (trigger when linesClearedTotal hits 5,10,15...)
     function addMegaExplosion() {
       for (let i=0; i<250; i++) {
         const x = Math.random() * canvas.width;
@@ -259,7 +272,6 @@
           mega: true
         });
       }
-      // Big popup
       popups.push({
         x: 1.5,
         y: 0.5,
@@ -297,7 +309,6 @@
           addPopup("CORRUPTION -1", r);
           addParticlesForRow(r);
 
-          // Mega explosion when total lines reach 5,10,15,...
           if (linesClearedTotal % 5 === 0) {
             addMegaExplosion();
           }
@@ -323,7 +334,6 @@
       ctx.fillStyle="#d62612"; ctx.fillRect(0,2*h,canvas.width,h);
     }
 
-    // Static (board) cell with outline
     function drawStaticCell(x,y,cell) {
       const px=x*BLOCK, py=y*BLOCK;
       const img=boikoImages[cell.imgIndex];
@@ -331,19 +341,17 @@
       if (img && img.complete && img.naturalWidth>0) {
         ctx.drawImage(img,px,py,BLOCK,BLOCK);
       }
-      // Outline
       ctx.strokeStyle="rgba(0,0,0,0.7)";
       ctx.lineWidth=1;
       ctx.strokeRect(px+0.5, py+0.5, BLOCK-1, BLOCK-1);
       ctx.restore();
     }
 
-    // Rotating cell for active piece (Boiko wobble)
     function drawRotatingCell(x,y,imgIndex) {
       const px=x*BLOCK, py=y*BLOCK;
       const img=boikoImages[imgIndex];
       const t = animationTime || 0;
-      const angle = Math.sin(t/350 + (x+y)) * 0.18; // wobble
+      const angle = Math.sin(t/350 + (x+y)) * 0.18;
 
       ctx.save();
       ctx.translate(px + BLOCK/2, py + BLOCK/2);
@@ -356,7 +364,6 @@
         ctx.fillRect(-BLOCK/2, -BLOCK/2, BLOCK-1, BLOCK-1);
       }
 
-      // Outline
       ctx.strokeStyle="rgba(0,0,0,0.7)";
       ctx.lineWidth=1;
       ctx.strokeRect(-BLOCK/2+0.5, -BLOCK/2+0.5, BLOCK-1, BLOCK-1);
@@ -368,19 +375,16 @@
       ctx.clearRect(0,0,canvas.width,canvas.height);
       drawFlagBackground();
 
-      // Board cells
       for (let r=0;r<ROWS;r++)
         for (let c=0;c<COLS;c++)
           if (board[r][c]) drawStaticCell(c,r,board[r][c]);
 
-      // Active piece with rotation
       if (!gameOver && currentPiece) {
         for (const [cx,cy] of currentPiece.cells) {
           drawRotatingCell(currentPiece.x+cx,currentPiece.y+cy,currentPiece.imgIndex);
         }
       }
 
-      // Popups
       popups.forEach(p=>{
         ctx.font="15px Arial"; ctx.lineWidth=3;
         let x=p.x*BLOCK, y=p.y*BLOCK+BLOCK/2;
@@ -390,13 +394,11 @@
       });
       popups=popups.filter(p=>p.life>0);
 
-      // Particles (regular + mega)
       particles.forEach(pt=>{
         pt.x+=pt.vx;
         pt.y+=pt.vy;
         pt.vy+=0.05;
         pt.life--;
-
         if (pt.mega) {
           ctx.fillStyle="rgba(255,80,0,0.9)";
           ctx.fillRect(pt.x,pt.y,3,3);
@@ -407,7 +409,6 @@
       });
       particles=particles.filter(pt=>pt.life>0);
 
-      // Game over overlay
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,canvas.height/2-60,canvas.width,120);
@@ -418,7 +419,6 @@
         ctx.fillText("Натисни Restart",canvas.width/2,canvas.height/2+25);
       }
 
-      // Pause overlay
       if (paused && !gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.6)";
         ctx.fillRect(0,canvas.height/2-40,canvas.width,80);
@@ -427,7 +427,6 @@
         ctx.fillText("Пауза",canvas.width/2,canvas.height/2+5);
       }
 
-      // Watermark
       ctx.font="12px Arial"; ctx.textAlign="right";
       ctx.fillStyle="rgba(255,255,255,0.6)";
       ctx.fillText("#Оставка2025",canvas.width-4,canvas.height-4);
