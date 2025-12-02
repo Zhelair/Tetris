@@ -237,7 +237,7 @@
     let spinEndTime = 0;
 
     // Rage / General strike
-    const RAGE_MAX = 10;
+    const RAGE_MAX = 5;
     let rage = 0;
 
     // Screen shake
@@ -437,7 +437,7 @@
           linesClearedTotal++;
           clearedNow++;
 
-          addPopup("CORRUPTION -1", r, true);
+          addPopup("КОРУПЦИЯ -1", r, true);
           addParticlesForRow(r);
 
           if (linesClearedTotal % 5 === 0) {
@@ -455,10 +455,10 @@
         rageEl.textContent = rage + " / " + RAGE_MAX;
       }
 
-      // Pig bonus on 4+ lines
-      if (clearedNow >= 4) {
-        triggerPigBonus();
-      }
+  // Pig bonus on 3+ lines
+if (clearedNow >= 3) {
+  triggerPigBonus();
+}
 
       // General strike when rage full
       if (rage >= RAGE_MAX) {
