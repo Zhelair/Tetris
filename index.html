@@ -36,7 +36,7 @@
       background: transparent;
       border: 2px solid #555;
       display: block;
-      /* we keep intrinsic size for phones */
+      /* keep intrinsic pixel size */
     }
 
     .side-panel {
@@ -200,7 +200,7 @@
     let crowdActive = false;
     let crowdTimer = 0;
 
-    // Media Spin state (inverted controls)
+    // Media Spin state (now slow motion)
     let spinActive = false;
     let spinNextTime = null;
     let spinEndTime = 0;
@@ -319,12 +319,18 @@
       });
     }
 
+    function updateFallSpeed() {
+      const normal = Math.max(150, BASE_SPEED - (level-1)*50);
+      // If TV spin is active, go into slow motion (larger interval)
+      fallSpeed = spinActive ? normal * 2 : normal;
+    }
+
     function levelUpIfNeeded() {
       const newLevel = Math.floor(linesClearedTotal / 5) + 1;
       if (newLevel !== level) {
         level = newLevel;
         levelEl.textContent = level;
-        fallSpeed = Math.max(150, BASE_SPEED - (level-1)*50);
+        updateFallSpeed();
         popups.push({
           x: 2,
           y: 1,
@@ -358,8 +364,8 @@
       }
 
       if (clearedNow >= 1) {
-        // 35% chance to trigger crowd power
-        if (Math.random() < 0.35) {
+        // 70% chance to trigger crowd power (increased from 35%)
+        if (Math.random() < 0.7) {
           triggerCrowdPower();
         }
       }
@@ -496,7 +502,7 @@
         ctx.fillText("Натисни Restart",WIDTH/2,HEIGHT/2+20);
       }
 
-      // Media Spin overlay
+      // Media Spin overlay (now = slow motion)
       if (spinActive && !gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.75)";
         const barHeight = 24;
@@ -504,7 +510,7 @@
         ctx.font = "13px Arial";
         ctx.fillStyle = "#ffcc00";
         ctx.textAlign = "center";
-        ctx.fillText("TV: Всичко е наред! (controls inverted)", WIDTH/2, 16);
+        ctx.fillText("TV: Всичко е наред! (slow motion)", WIDTH/2, 16);
       }
 
       // Pause overlay
@@ -541,12 +547,13 @@
         }
       }
 
-      // Media Spin timing
+      // Media Spin timing (slow motion)
       if (!gameOver) {
         if (!spinActive && t >= spinNextTime) {
           spinActive = true;
-          spinEndTime = t + 5000;      // 5s duration
+          spinEndTime = t + 3000;      // 3s duration
           spinNextTime = t + 20000;    // next spin in 20s
+          updateFallSpeed();
           popups.push({
             x: 1.5,
             y: 0.5,
@@ -556,6 +563,7 @@
           });
         } else if (spinActive && t >= spinEndTime) {
           spinActive = false;
+          updateFallSpeed();
         }
       }
 
@@ -570,21 +578,15 @@
     function handleAction(a) {
       if (gameOver || paused) return;
 
-      // If media spin active, invert left/right
-      let action = a;
-      if (spinActive) {
-        if (a === "left") action = "right";
-        else if (a === "right") action = "left";
-      }
-
-      if (action === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
-      if (action === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
-      if (action === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
-      if (action === "rotate") {
+      // NO inversion here anymore, just normal controls
+      if (a === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
+      if (a === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
+      if (a === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
+      if (a === "rotate") {
         const rot = rotateShape(currentPiece.cells);
         if (valid(currentPiece, 0, 0, rot)) currentPiece.cells = rot;
       }
-      if (action === "drop") {
+      if (a === "drop") {
         while (valid(currentPiece, 0, 1)) currentPiece.y++;
         stepDown();
       }
@@ -641,7 +643,12 @@
       paused = false;
       linesClearedTotal = 0;
       level = 1;
-      fallSpeed = BASE_SPEED;
+      spinActive = false;
+      spinNextTime = null;
+      spinEndTime = 0;
+
+      updateFallSpeed();
+
       scoreEl.textContent = score;
       levelEl.textContent = level;
       pauseBtn.textContent="Pause";
@@ -652,10 +659,6 @@
 
       crowdActive = false;
       crowdTimer = 0;
-
-      spinActive = false;
-      spinNextTime = null;
-      spinEndTime = 0;
 
       draw();
     }
