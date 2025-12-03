@@ -1,3 +1,9 @@
+it broke unfortunatelly...
+
+could you please use the code that was working fine, this one:
+
+let's try to implement it into the code. here is the code we have as of now:
+
 <!DOCTYPE html>
 <html lang="bg">
 <head>
@@ -624,7 +630,7 @@
       if (clearedNow > 0) {
         rage += clearedNow;
         if (rage > RAGE_MAX) rage = RAGE_MAX;
-        rageEl.textContent = "0 / " + RAGE_MAX;
+        rageEl.textContent = rage + " / " + RAGE_MAX;
       }
 
       if (clearedNow >= 3) {
@@ -735,55 +741,6 @@
       ctx.restore();
     }
 
-    // === NEW: evil pig cell for pigBomb ===
-    function drawPigCell(gridX, gridY) {
-      const px = gridX * BLOCK;
-      const py = gridY * BLOCK;
-      ctx.save();
-
-      // Dark red / dirty background
-      ctx.fillStyle = "#3b0212";
-      ctx.fillRect(px, py, BLOCK, BLOCK);
-
-      // Evil glowing border
-      ctx.strokeStyle = "#ff0033";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px + 1, py + 1, BLOCK - 2, BLOCK - 2);
-
-      // Pig face
-      // Eyes (pale skin)
-      ctx.fillStyle = "#ffccd5";
-      const eyeR = 2;
-      ctx.beginPath();
-      ctx.arc(px + BLOCK * 0.35, py + BLOCK * 0.35, eyeR, 0, Math.PI * 2);
-      ctx.arc(px + BLOCK * 0.65, py + BLOCK * 0.35, eyeR, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Pupils (black, slightly tilted)
-      ctx.fillStyle = "#000000";
-      ctx.beginPath();
-      ctx.arc(px + BLOCK * 0.33, py + BLOCK * 0.36, 1, 0, Math.PI * 2);
-      ctx.arc(px + BLOCK * 0.67, py + BLOCK * 0.36, 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Snout
-      ctx.fillStyle = "#ff5c7a";
-      const snoutW = BLOCK * 0.5;
-      const snoutH = BLOCK * 0.28;
-      const snoutX = px + BLOCK * 0.25;
-      const snoutY = py + BLOCK * 0.55;
-      ctx.fillRect(snoutX, snoutY, snoutW, snoutH);
-
-      // Nostrils
-      ctx.fillStyle = "#3b0212";
-      ctx.beginPath();
-      ctx.arc(snoutX + snoutW * 0.3, snoutY + snoutH * 0.5, 1, 0, Math.PI * 2);
-      ctx.arc(snoutX + snoutW * 0.7, snoutY + snoutH * 0.5, 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
-    }
-
     function draw() {
       ctx.clearRect(0,0,WIDTH,HEIGHT);
 
@@ -804,9 +761,6 @@
       if (!gameOver && currentPiece) {
         if (currentPiece.type === "euBonus") {
           drawEUCell(currentPiece.x, currentPiece.y);
-        } else if (currentPiece.type === "pigBomb") {
-          // Special evil pig brick only for the pig event
-          drawPigCell(currentPiece.x, currentPiece.y);
         } else {
           for (const [cx,cy] of currentPiece.cells) {
             drawRotatingCell(currentPiece.x+cx,currentPiece.y+cy,currentPiece.imgIndex);
