@@ -30,6 +30,7 @@
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
       max-width: 100%;
       box-sizing: border-box;
+      position: relative; /* for absolute Restart button */
     }
 
     #game {
@@ -58,44 +59,57 @@
     button:hover {
       filter: brightness(1.1);
     }
-.touch-controls {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px;           /* almost no gap */
-    margin-top: 4px;    /* smaller top margin */
-    width: 100%;
-}
 
-.touch-controls button {
-    padding: 9px;
-    font-size: 16px;
-    min-height: 45px;
-    border-radius: 8px;
-    font-weight: bold;
-    max-width: 100%;     /* no horizontal stretching */
-}
+    /* TOUCH CONTROLS – tighter, smaller gaps */
+    .touch-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 4px;
+      width: 100%;
+    }
 
+    .touch-controls button {
+      padding: 9px;
+      font-size: 16px;
+      min-height: 45px;
+      border-radius: 8px;
+      font-weight: bold;
+      max-width: 100%;
+    }
 
-}
+    /* SYSTEM BUTTONS – Pause & Music only in row, Restart is moved */
+    .system-controls {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 2px;
+      margin-top: 6px;
+    }
 
-    /* System buttons */
-.system-controls {
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    gap: 2px;            /* minimal space */
-    margin-top: 6px;
-}
+    .system-controls button {
+      flex: 1 1 0;
+      padding: 7px;
+      font-size: 11px;
+      min-height: 32px;
+      border-radius: 8px;
+      font-weight: bold;
+      max-width: 100%;
+    }
 
-.system-controls button {
-    flex: 1 1 0;
-    padding: 7px;        /* bigger */
-    font-size: 11px;     /* readable again */
-    min-height: 32px;
-    border-radius: 8px;
-    font-weight: bold;
-    max-width: 100%;
-}
+    /* Restart moved to top-right of the wrapper */
+    #restart {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      flex: none;
+      max-width: none;
+      width: auto;
+      padding: 6px 10px;
+      font-size: 11px;
+      min-height: 28px;
+      z-index: 5;
+    }
 
     .label {
       font-weight: bold;
@@ -165,13 +179,15 @@
         <button data-action="drop">⤓</button>
       </div>
 
-      <!-- SYSTEM BUTTONS -->
+      <!-- SYSTEM BUTTONS (Pause & Music) -->
       <div class="system-controls">
-        <button id="restart">Рестарт</button>
         <button id="pause">Пауза</button>
         <button id="toggleMusic">Пусни музика</button>
       </div>
     </div>
+
+    <!-- Restart moved visually to top-right -->
+    <button id="restart">Рестарт</button>
   </div>
 
   <audio id="bgm" src="music.mp3" loop></audio>
@@ -182,7 +198,8 @@
     const COLS = 10;
     const ROWS = 20;
     const BLOCK = 22;
-    const BASE_SPEED = 500;
+    // 20% slower overall: was 500, now 600
+    const BASE_SPEED = 600;
 
     const WIDTH = COLS * BLOCK;
     const HEIGHT = ROWS * BLOCK;
@@ -509,8 +526,8 @@
       if (euSlowActive) normal *= 1.8;
       if (spinActive) normal *= 2;
 
-      // Level 7 final sprint overrides
-      if (finalFastMode) normal = 90;
+      // Level 7 final sprint – also 20% slower than before: was 90, now ~110
+      if (finalFastMode) normal = 110;
 
       fallSpeed = normal;
     }
