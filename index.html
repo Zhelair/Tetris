@@ -276,13 +276,12 @@
     // Level 7 final sprint
     let finalFastMode = false;
 
-    // Boss fight
+    // Boss & win
     let bossMode = false;
-    let bossHP = 0;
-    const BOSS_MAX_HP = 20;
+    let bossLinesToWin = 0;
     let win = false;
 
-    // Pig storm ("Дъжд от прасета")
+    // Pig storm
     let pigStormPiecesLeft = 0;
 
     const SHAPES = [
@@ -304,7 +303,7 @@
 
     // Spawn pieces: pig storm override / pig bomb / EU bonus / normal
     function spawnPiece() {
-      // If a pig storm is active, force pig bombs for a few pieces
+      // Pig storm: force pig bombs for a few pieces
       if (pigStormPiecesLeft > 0) {
         pigStormPiecesLeft--;
         const imgIndex = Math.floor(Math.random() * boikoImages.length);
@@ -500,16 +499,17 @@
           mega: false
         });
       }
-      // Extra damage to boss during boss fight
+
+      // Extra damage to boss during boss phase
       if (bossMode) {
         damageBoss(3);
       }
     }
 
-    // Pig storm – several pig bombs in a row
+    // Pig storm – next 3 pieces are pig bombs
     function triggerPigStorm() {
-      pigStormPiecesLeft = 3; // next 3 pieces are pig bombs
-      addPopup("Прасешки дъжд!", ROWS/2, true); // centered text
+      pigStormPiecesLeft = 3;
+      addPopup("Прасешки дъжд!", ROWS/2, true);
     }
 
     // Bus – bought vote
@@ -579,7 +579,7 @@
       addMegaExplosion();
       shakeTimer = Math.max(shakeTimer, 25);
 
-      // Extra damage to boss if in boss phase
+      // Extra boss damage
       if (bossMode) {
         damageBoss(5);
       }
@@ -594,32 +594,30 @@
     // Boss helpers
     function startBossFight() {
       bossMode = true;
-      bossHP = BOSS_MAX_HP;
+      bossLinesToWin = 8; // need 8 cleared lines in boss mode to win
 
-      // Build "corruption wall" near the top (rows 2 and 3)
-      const wallRows = [2, 3];
-      wallRows.forEach(r => {
-        if (r >= 0 && r < ROWS) {
-          board[r] = [];
-          for (let c = 0; c < COLS; c++) {
-            board[r][c] = { imgIndex: Math.floor(Math.random() * boikoImages.length) };
-          }
+      // Build "corruption wall" near the top (row 2)
+      const wallRow = 2;
+      if (wallRow >= 0 && wallRow < ROWS) {
+        board[wallRow] = [];
+        for (let c = 0; c < COLS; c++) {
+          board[wallRow][c] = { imgIndex: Math.floor(Math.random() * boikoImages.length) };
         }
-      });
+      }
 
       addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", 1, true);
     }
 
     function damageBoss(amount) {
       if (!bossMode || gameOver) return;
-      bossHP -= amount;
-      if (bossHP <= 0) {
-        bossHP = 0;
+      bossLinesToWin -= amount;
+      if (bossLinesToWin <= 0) {
         winGame();
       }
     }
 
     function winGame() {
+      if (gameOver) return;
       gameOver = true;
       win = true;
       board = emptyBoard();
@@ -657,7 +655,7 @@
           addPopup("НИВО " + level, 1, true);
         }
 
-        // Start boss immediately when level 7 is reached
+        // Start boss immediately when reaching level 7
         if (level === 7 && !bossMode) {
           startBossFight();
         }
@@ -709,8 +707,8 @@
         triggerPigBonus();
       }
 
-      // Chance to trigger "Дъжд от прасета" after multi-line clear
-      if (clearedNow >= 2 && Math.random() < 0.3) {
+      // Pig storm: 50% chance when clearing 2+ lines at once
+      if (clearedNow >= 2 && Math.random() < 0.5) {
         triggerPigStorm();
       }
 
@@ -738,7 +736,7 @@
         damageBoss(clearedNow);
       }
 
-      if (clearedNow > 0) {
+      if (clearedNow > 0 && !gameOver) {
         levelUpIfNeeded();
       }
 
@@ -852,7 +850,7 @@
 
       popups.forEach(p=>{
         ctx.save();
-        ctx.font="13px Arial";
+        ctx.font="13px Arial"; 
         ctx.lineWidth=3;
 
         let x = p.center ? WIDTH/2 : p.x*BLOCK;
@@ -865,7 +863,7 @@
         ctx.fillStyle="#ffea00";
         ctx.fillText(p.text,x,y);
 
-        p.y -= 0.02;
+        p.y -= 0.02; 
         p.life--;
         ctx.restore();
       });
@@ -978,7 +976,7 @@
           merge(currentPiece);
         }
         clearLines();
-        if (gameOver) return; // stop if boss was defeated here
+        if (gameOver) return; // if boss was defeated here
         currentPiece = spawnPiece();
         if (!valid(currentPiece)) gameOver = true;
       }
@@ -1039,7 +1037,7 @@
       }
 
       if (!paused && !gameOver && !inspectionActive && t-lastTick>fallSpeed) {
-        stepDown();
+        stepDown(); 
         lastTick=t;
       }
       draw();
@@ -1124,7 +1122,7 @@
 
       // Reset boss & pig storm
       bossMode = false;
-      bossHP = 0;
+      bossLinesToWin = 0;
       win = false;
       pigStormPiecesLeft = 0;
 
