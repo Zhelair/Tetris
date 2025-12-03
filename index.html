@@ -592,18 +592,30 @@
     }
 
     // Boss helpers
+    
     function startBossFight() {
-      bossMode = true;
-      bossLinesToWin = 8; // need 8 cleared lines in boss mode to win
+  bossMode = true;
+  bossLinesToWin = 8; // lines needed in boss phase to win
 
-      // Build "corruption wall" near the top (row 2)
-      const wallRow = 2;
-      if (wallRow >= 0 && wallRow < ROWS) {
-        board[wallRow] = [];
-        for (let c = 0; c < COLS; c++) {
-          board[wallRow][c] = { imgIndex: Math.floor(Math.random() * boikoImages.length) };
-        }
-      }
+  // 1) Clear top 4 rows so new pieces always have room to spawn
+  for (let r = 0; r < 4; r++) {
+    board[r] = new Array(COLS).fill(null);
+  }
+
+  // 2) Build "corruption wall" a bit lower (row 4)
+  const wallRow = 4;
+  if (wallRow >= 0 && wallRow < ROWS) {
+    board[wallRow] = [];
+    for (let c = 0; c < COLS; c++) {
+      board[wallRow][c] = {
+        imgIndex: Math.floor(Math.random() * boikoImages.length)
+      };
+    }
+
+  // 3) Nice centered popup for the boss phase
+  addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", wallRow, true);
+}
+
 
       addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", 1, true);
     }
