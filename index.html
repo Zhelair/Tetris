@@ -276,6 +276,15 @@
     // Level 7 final sprint
     let finalFastMode = false;
 
+    // Boss fight
+    let bossMode = false;
+    let bossHP = 0;
+    const BOSS_MAX_HP = 20;
+    let win = false;
+
+    // Pig storm ("Дъжд от прасета")
+    let pigStormPiecesLeft = 0;
+
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
       {cells:[[0,0],[0,1],[1,0],[1,1]]},
@@ -293,8 +302,21 @@
     function rotate([x,y]) { return [y,-x]; }
     function rotateShape(cells) { return cells.map(rotate); }
 
-    // Spawn pieces: pig bomb / EU bonus / normal
+    // Spawn pieces: pig storm override / pig bomb / EU bonus / normal
     function spawnPiece() {
+      // If a pig storm is active, force pig bombs for a few pieces
+      if (pigStormPiecesLeft > 0) {
+        pigStormPiecesLeft--;
+        const imgIndex = Math.floor(Math.random() * boikoImages.length);
+        return {
+          x: Math.floor(COLS/2),
+          y: 0,
+          cells: [[0,0]],
+          imgIndex,
+          type: "pigBomb"
+        };
+      }
+
       const rnd = Math.random();
 
       // Pig bomb
@@ -478,6 +500,16 @@
           mega: false
         });
       }
+      // Extra damage to boss during boss fight
+      if (bossMode) {
+        damageBoss(3);
+      }
+    }
+
+    // Pig storm – several pig bombs in a row
+    function triggerPigStorm() {
+      pigStormPiecesLeft = 3; // next 3 pieces are pig bombs
+      addPopup("Прасешки дъжд!", ROWS/2, true); // centered text
     }
 
     // Bus – bought vote
@@ -546,12 +578,60 @@
       addPopup("Генерална стачка!", 2, true);
       addMegaExplosion();
       shakeTimer = Math.max(shakeTimer, 25);
+
+      // Extra damage to boss if in boss phase
+      if (bossMode) {
+        damageBoss(5);
+      }
     }
 
     function startEUInspection() {
       inspectionActive = true;
       inspectionTimer = 600;
       addPopup("Проверка от ЕС", 0.5, true);
+    }
+
+    // Boss helpers
+    function startBossFight() {
+      bossMode = true;
+      bossHP = BOSS_MAX_HP;
+
+      // Build "corruption wall" near the top (rows 2 and 3)
+      const wallRows = [2, 3];
+      wallRows.forEach(r => {
+        if (r >= 0 && r < ROWS) {
+          board[r] = [];
+          for (let c = 0; c < COLS; c++) {
+            board[r][c] = { imgIndex: Math.floor(Math.random() * boikoImages.length) };
+          }
+        }
+      });
+
+      addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", 1, true);
+    }
+
+    function checkBossStart() {
+      // Boss starts on level 7 after enough total cleared lines
+      if (!bossMode && level === 7 && linesClearedTotal >= 30) {
+        startBossFight();
+      }
+    }
+
+    function damageBoss(amount) {
+      if (!bossMode || gameOver) return;
+      bossHP -= amount;
+      if (bossHP <= 0) {
+        bossHP = 0;
+        winGame();
+      }
+    }
+
+    function winGame() {
+      gameOver = true;
+      win = true;
+      board = emptyBoard();
+      addMegaExplosion();
+      addPopup("Хората победиха!", 1, true);
     }
 
     // Level logic with cap at 7 and final sprint
@@ -631,6 +711,11 @@
         triggerPigBonus();
       }
 
+      // Chance to trigger "Дъжд от прасета" after multi-line clear
+      if (clearedNow >= 2 && Math.random() < 0.12) {
+        triggerPigStorm();
+      }
+
       if (rage >= RAGE_MAX) {
         triggerGeneralStrike();
         rage = 0;
@@ -650,8 +735,14 @@
         } catch(e){}
       }
 
+      // Damage boss from line clears
+      if (bossMode && clearedNow > 0) {
+        damageBoss(clearedNow);
+      }
+
       if (clearedNow > 0) {
         levelUpIfNeeded();
+        checkBossStart();
       }
 
       const prevBlock = Math.floor(prevTotal / 3);
@@ -764,7 +855,7 @@
 
       popups.forEach(p=>{
         ctx.save();
-        ctx.font="13px Arial"; 
+        ctx.font="13px Arial";
         ctx.lineWidth=3;
 
         let x = p.center ? WIDTH/2 : p.x*BLOCK;
@@ -777,7 +868,7 @@
         ctx.fillStyle="#ffea00";
         ctx.fillText(p.text,x,y);
 
-        p.y -= 0.02; 
+        p.y -= 0.02;
         p.life--;
         ctx.restore();
       });
@@ -833,7 +924,8 @@
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
         ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
         ctx.textAlign="center";
-        ctx.fillText("Оставка!",WIDTH/2,HEIGHT/2-5);
+        const title = win ? "Хората победиха!" : "Оставка!";
+        ctx.fillText(title,WIDTH/2,HEIGHT/2-5);
         ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
         ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
       }
@@ -889,6 +981,7 @@
           merge(currentPiece);
         }
         clearLines();
+        if (gameOver) return; // stop if boss was defeated here
         currentPiece = spawnPiece();
         if (!valid(currentPiece)) gameOver = true;
       }
@@ -949,7 +1042,7 @@
       }
 
       if (!paused && !gameOver && !inspectionActive && t-lastTick>fallSpeed) {
-        stepDown(); 
+        stepDown();
         lastTick=t;
       }
       draw();
@@ -1031,6 +1124,12 @@
       rageEl.textContent = "0 / " + RAGE_MAX;
 
       finalFastMode = false;
+
+      // Reset boss & pig storm
+      bossMode = false;
+      bossHP = 0;
+      win = false;
+      pigStormPiecesLeft = 0;
 
       updateFallSpeed();
 
