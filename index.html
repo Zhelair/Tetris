@@ -276,6 +276,11 @@
     // Level 7 final sprint
     let finalFastMode = false;
 
+    // ==== NEW: Final boss / win condition ====
+    const FINAL_LEVEL = 7;
+    const FINAL_LINES_TARGET = 25; // total cleared lines needed to "win"
+    let victory = false;
+
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
       {cells:[[0,0],[0,1],[1,0],[1,1]]},
@@ -588,6 +593,14 @@
       }
     }
 
+    // ==== NEW: when win condition is met ====
+    function handleVictory() {
+      victory = true;
+      gameOver = true;
+      addPopup("Народът победи!", 1, true);
+      addMegaExplosion();
+    }
+
     function clearLines() {
       let clearedNow = 0;
       const prevTotal = linesClearedTotal;
@@ -659,6 +672,11 @@
       if (newBlock > prevBlock) {
         triggerBusRowClear();
       }
+
+      // ==== NEW: check win condition ====
+      if (!victory && level === FINAL_LEVEL && linesClearedTotal >= FINAL_LINES_TARGET) {
+        handleVictory();
+      }
     }
 
     function drawFlagBackground() {
@@ -668,16 +686,25 @@
       ctx.fillStyle="#d62612"; ctx.fillRect(0,2*h,WIDTH,h);
     }
 
+    // ==== UPDATED: drawStaticCell now shows pig bricks ====
     function drawStaticCell(x,y,cell) {
       const px=x*BLOCK, py=y*BLOCK;
       const img=boikoImages[cell.imgIndex];
       ctx.save();
+
+      // Background (old behaviour, keeps compatibility)
       if (img && img.complete && img.naturalWidth>0) {
         ctx.drawImage(img,px,py,BLOCK,BLOCK);
       } else {
         ctx.fillStyle="#ffffff";
         ctx.fillRect(px,py,BLOCK,BLOCK);
       }
+
+      // Pig face overlay on every brick
+      ctx.font = "14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#000000";
+      ctx.fillText("🐷", px + BLOCK/2, py + BLOCK/2 + 5);
 
       if (cell.cash) {
         ctx.strokeStyle="rgba(255,215,0,0.95)";
@@ -695,6 +722,7 @@
       ctx.restore();
     }
 
+    // ==== UPDATED: rotating pig bricks for falling pieces ====
     function drawRotatingCell(x,y,imgIndex) {
       const px=x*BLOCK, py=y*BLOCK;
       const img=boikoImages[imgIndex];
@@ -711,6 +739,12 @@
         ctx.fillStyle="#ffffff";
         ctx.fillRect(-BLOCK/2, -BLOCK/2, BLOCK-1, BLOCK-1);
       }
+
+      // Pig face in the middle of rotating block
+      ctx.font = "14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#000000";
+      ctx.fillText("🐷", 0, 5);
 
       ctx.strokeStyle="rgba(0,0,0,0.7)";
       ctx.lineWidth=1;
@@ -764,7 +798,7 @@
 
       popups.forEach(p=>{
         ctx.save();
-        ctx.font="13px Arial"; 
+        ctx.font="13px Arial";
         ctx.lineWidth=3;
 
         let x = p.center ? WIDTH/2 : p.x*BLOCK;
@@ -777,7 +811,7 @@
         ctx.fillStyle="#ffea00";
         ctx.fillText(p.text,x,y);
 
-        p.y -= 0.02; 
+        p.y -= 0.02;
         p.life--;
         ctx.restore();
       });
@@ -831,11 +865,19 @@
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
-        ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
         ctx.textAlign="center";
-        ctx.fillText("Оставка!",WIDTH/2,HEIGHT/2-5);
-        ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
-        ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
+
+        if (victory) {
+          ctx.fillStyle="#7CFC00"; ctx.font="22px Arial";
+          ctx.fillText("Народът победи!",WIDTH/2,HEIGHT/2-5);
+          ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
+          ctx.fillText("Натисни „Рестарт“ за нов протест",WIDTH/2,HEIGHT/2+20);
+        } else {
+          ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
+          ctx.fillText("Оставка!",WIDTH/2,HEIGHT/2-5);
+          ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
+          ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
+        }
       }
 
       if (spinActive && !gameOver) {
@@ -949,7 +991,7 @@
       }
 
       if (!paused && !gameOver && !inspectionActive && t-lastTick>fallSpeed) {
-        stepDown(); 
+        stepDown();
         lastTick=t;
       }
       draw();
@@ -1031,6 +1073,7 @@
       rageEl.textContent = "0 / " + RAGE_MAX;
 
       finalFastMode = false;
+      victory = false; // NEW: reset win state
 
       updateFallSpeed();
 
