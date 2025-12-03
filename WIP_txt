@@ -1,0 +1,1162 @@
+WIP - working code, but boss leve is not 
+
+
+
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8">
+  <title>Protest Tetris</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      background:
+        linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.85)),
+        url("sofia.png") center/cover no-repeat fixed;
+      background-color: #050813;
+    }
+
+    .wrapper {
+      display: flex;
+      flex-direction: row;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+      max-width: 100%;
+      box-sizing: border-box;
+      position: relative; /* for absolute Restart button */
+    }
+
+    #game {
+      background: transparent;
+      border: 2px solid #555;
+      display: block;
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 165px;
+    }
+
+    button {
+      padding: 5px 7px;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      background: #ffcc00;
+      color: #000;
+      border-radius: 8px;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    /* TOUCH CONTROLS – tighter, smaller gaps */
+    .touch-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 4px;
+      width: 100%;
+    }
+
+    .touch-controls button {
+      padding: 9px;
+      font-size: 16px;
+      min-height: 45px;
+      border-radius: 8px;
+      font-weight: bold;
+      max-width: 100%;
+    }
+
+    /* SYSTEM BUTTONS – Pause & Music only in row, Restart is moved */
+    .system-controls {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 2px;
+      margin-top: 6px;
+    }
+
+    .system-controls button {
+      flex: 1 1 0;
+      padding: 7px;
+      font-size: 11px;
+      min-height: 32px;
+      border-radius: 8px;
+      font-weight: bold;
+      max-width: 100%;
+    }
+
+    /* Restart moved to top-right of the wrapper */
+    #restart {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      flex: none;
+      max-width: none;
+      width: auto;
+      padding: 6px 10px;
+      font-size: 11px;
+      min-height: 28px;
+      z-index: 5;
+    }
+
+    .label {
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    .value {
+      font-size: 15px;
+      margin-top: 1px;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 6px;
+      }
+
+      .wrapper {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 380px;
+      }
+
+      .side-panel {
+        width: 100%;
+        align-items: stretch;
+      }
+
+      #game {
+        margin-bottom: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <canvas id="game"></canvas>
+
+    <div class="side-panel">
+      <div>
+        <div class="label">Изчистена корупция:</div>
+        <div id="score" class="value">0</div>
+      </div>
+
+      <div>
+        <div class="label">Ниво:</div>
+        <div id="level" class="value">1</div>
+      </div>
+
+      <div>
+        <div class="label">Гняв:</div>
+        <div id="rage" class="value">0 / 5</div>
+      </div>
+
+      <div style="font-size:10px;opacity:0.9;max-width:220px;">
+        ← → местене, ↓ падане, ↑ завъртане, Space = твърдо пускане
+      </div>
+
+      <!-- TOUCH CONTROLS -->
+      <div class="touch-controls">
+        <button data-action="left">◀</button>
+        <button data-action="down">⬇</button>
+        <button data-action="right">▶</button>
+        <button data-action="rotate">⟳</button>
+        <button data-action="drop">⤓</button>
+      </div>
+
+      <!-- SYSTEM BUTTONS (Pause & Music) -->
+      <div class="system-controls">
+        <button id="pause">Пауза</button>
+        <button id="toggleMusic">Пусни музика</button>
+      </div>
+    </div>
+
+    <!-- Restart moved visually to top-right -->
+    <button id="restart">Рестарт</button>
+  </div>
+
+  <audio id="bgm" src="music.mp3" loop></audio>
+  <audio id="chant" src="chant.mp3"></audio>
+
+  <script>
+    // ===== CONFIG =====
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK = 22;
+    // 20% slower overall: was 500, now 600
+    const BASE_SPEED = 600;
+
+    const WIDTH = COLS * BLOCK;
+    const HEIGHT = ROWS * BLOCK;
+
+    const boikoImages = [];
+    ["boiko.png", "boiko_1.png", "boiko_2.png"].forEach(src => {
+      const img = new Image();
+      img.src = src;
+      boikoImages.push(img);
+    });
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = WIDTH * dpr;
+    canvas.height = HEIGHT * dpr;
+    canvas.style.width = WIDTH + "px";
+    canvas.style.height = HEIGHT + "px";
+    ctx.scale(dpr, dpr);
+
+    const scoreEl = document.getElementById("score");
+    const levelEl = document.getElementById("level");
+    const rageEl  = document.getElementById("rage");
+    const bgm = document.getElementById("bgm");
+    const chant = document.getElementById("chant");
+    const toggleMusicBtn = document.getElementById("toggleMusic");
+    const restartBtn = document.getElementById("restart");
+    const pauseBtn = document.getElementById("pause");
+    const touchButtons = document.querySelectorAll(".touch-controls button");
+
+    let musicPlaying = false;
+    let board;
+    let currentPiece;
+    let gameOver;
+    let score;
+    let lastTick;
+    let popups = [];
+    let particles = [];
+    let paused = false;
+    let level = 1;
+    let linesClearedTotal = 0;
+    let fallSpeed = BASE_SPEED;
+    let animationTime = 0;
+
+    // Crowd
+    let crowdActive = false;
+    let crowdTimer = 0;
+
+    // TV "All is fine"
+    let spinActive = false;
+    let spinNextTime = null;
+    let spinEndTime = 0;
+
+    // Rage / General strike
+    const RAGE_MAX = 5;
+    let rage = 0;
+
+    // Screen shake
+    let shakeTimer = 0;
+
+    // EU inspection
+    let inspectionActive = false;
+    let inspectionTimer = 0;
+    let inspectionStep = 0;
+
+    // Bus (bought vote)
+    let busEffect = null;
+
+    // EU funds slowdown
+    let euSlowActive = false;
+    let euSlowEndTime = 0;
+
+    // Level 7 final sprint
+    let finalFastMode = false;
+
+    // Boss & win
+    let bossMode = false;
+    let bossLinesToWin = 0;
+    let win = false;
+
+    // Pig storm
+    let pigStormPiecesLeft = 0;
+
+    const SHAPES = [
+      {cells:[[0,0],[-1,0],[1,0],[2,0]]},
+      {cells:[[0,0],[0,1],[1,0],[1,1]]},
+      {cells:[[0,0],[-1,0],[1,0],[0,1]]},
+      {cells:[[0,0],[0,1],[0,2],[1,2]]},
+      {cells:[[0,0],[0,1],[0,2],[-1,2]]},
+      {cells:[[0,0],[1,0],[0,1],[-1,1]]},
+      {cells:[[0,0],[-1,0],[0,1],[1,1]]}
+    ];
+
+    function emptyBoard() {
+      return Array.from({length: ROWS}, () => Array(COLS).fill(null));
+    }
+
+    function rotate([x,y]) { return [y,-x]; }
+    function rotateShape(cells) { return cells.map(rotate); }
+
+    // Spawn pieces: pig storm override / pig bomb / EU bonus / normal
+    function spawnPiece() {
+      // Pig storm: force pig bombs for a few pieces
+      if (pigStormPiecesLeft > 0) {
+        pigStormPiecesLeft--;
+        const imgIndex = Math.floor(Math.random() * boikoImages.length);
+        return {
+          x: Math.floor(COLS/2),
+          y: 0,
+          cells: [[0,0]],
+          imgIndex,
+          type: "pigBomb"
+        };
+      }
+
+      const rnd = Math.random();
+
+      // Pig bomb
+      if (rnd < 0.08) {
+        const imgIndex = Math.floor(Math.random() * boikoImages.length);
+        return {
+          x: Math.floor(COLS/2),
+          y: 0,
+          cells: [[0,0]],
+          imgIndex,
+          type: "pigBomb"
+        };
+      }
+
+      // EU funds bonus
+      if (rnd < 0.13) {
+        return {
+          x: Math.floor(COLS/2),
+          y: 0,
+          cells: [[0,0]],
+          imgIndex: 0,
+          type: "euBonus"
+        };
+      }
+
+      // Normal piece (with possible cash cell)
+      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      const imgIndex = Math.floor(Math.random() * boikoImages.length);
+      const cells = shape.cells.map(c=>[...c]);
+      const piece = {
+        x: Math.floor(COLS/2),
+        y: 0,
+        cells,
+        imgIndex,
+        type: "normal",
+        cashIndex: -1
+      };
+
+      // chance for "Euro in the nightstand"
+      if (Math.random() < 0.18) {
+        piece.cashIndex = Math.floor(Math.random() * cells.length);
+      }
+
+      return piece;
+    }
+
+    function valid(piece, dx=0, dy=0, newCells=null) {
+      const cells = newCells || piece.cells;
+      for (const [cx,cy] of cells) {
+        const x = piece.x + cx + dx;
+        const y = piece.y + cy + dy;
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+        if (board[y][x]) return false;
+      }
+      return true;
+    }
+
+    function merge(piece) {
+      for (let i=0; i<piece.cells.length; i++) {
+        const [cx,cy] = piece.cells[i];
+        const x = piece.x + cx;
+        const y = piece.y + cy;
+        let cell = { imgIndex: piece.imgIndex };
+        if (piece.cashIndex === i) {
+          cell.cash = true;
+        }
+        board[y][x] = cell;
+      }
+    }
+
+    // Smarter popups – push them up if many
+    function addPopup(text,row,center=false) {
+      const active = popups.length;
+      const y = row - 0.6 * active;
+      popups.push({ x:1.5, y, text, life:300, center });
+    }
+
+    function addParticlesForRow(row) {
+      const y = row * BLOCK + BLOCK/2;
+      for (let i=0; i<40; i++) {
+        const x = Math.random() * WIDTH;
+        const ang = Math.random()*Math.PI*2;
+        const sp = 1 + Math.random()*2;
+        particles.push({
+          x,y,
+          vx: Math.cos(ang)*sp,
+          vy: Math.sin(ang)*sp - 1,
+          life: 40 + Math.random()*20,
+          mega: false
+        });
+      }
+    }
+
+    function triggerCrowdPower() {
+      const rowsWithBlocks = [];
+      for (let r=0; r<ROWS; r++) {
+        if (board[r].some(cell => cell !== null)) {
+          rowsWithBlocks.push(r);
+        }
+      }
+      if (rowsWithBlocks.length === 0) return;
+
+      const r = rowsWithBlocks[Math.floor(Math.random() * rowsWithBlocks.length)];
+      board.splice(r, 1);
+      board.unshift(new Array(COLS).fill(null));
+
+      score += 50;
+      scoreEl.textContent = score;
+
+      addPopup("Сила на тълпата!", r, true);
+      addParticlesForRow(r);
+
+      crowdActive = true;
+      crowdTimer = 120;
+    }
+
+    function addMegaExplosion() {
+      for (let i=0; i<250; i++) {
+        const x = Math.random() * WIDTH;
+        const y = Math.random() * HEIGHT;
+        const ang = Math.random()*Math.PI*2;
+        const sp = 2 + Math.random()*3;
+        particles.push({
+          x,y,
+          vx: Math.cos(ang)*sp,
+          vy: Math.sin(ang)*sp - 1.5,
+          life: 100 + Math.random()*40,
+          mega: true
+        });
+      }
+      addPopup("МЕГА БУМ!", 0.5, true);
+    }
+
+    function triggerPigBonus() {
+      const rowsWithBlocks = [];
+      for (let r=0; r<ROWS; r++) {
+        if (board[r].some(c => c !== null)) {
+          rowsWithBlocks.push(r);
+        }
+      }
+      let extraCleared = 0;
+      while (rowsWithBlocks.length > 0 && extraCleared < 2) {
+        const idx = Math.floor(Math.random() * rowsWithBlocks.length);
+        const r = rowsWithBlocks.splice(idx,1)[0];
+        board.splice(r,1);
+        board.unshift(new Array(COLS).fill(null));
+        extraCleared++;
+      }
+      if (extraCleared > 0) {
+        score += extraCleared * 80;
+        scoreEl.textContent = score;
+        addPopup("Прасешки бонус!", 1, true);
+        shakeTimer = Math.max(shakeTimer, 12);
+      }
+    }
+
+    function triggerPigBombExplosion(cx, cy) {
+      const positions = [
+        [cx, cy],
+        [cx-1, cy],
+        [cx+1, cy],
+        [cx, cy-1],
+        [cx, cy+1]
+      ];
+      positions.forEach(([x,y]) => {
+        if (x>=0 && x<COLS && y>=0 && y<ROWS) {
+          if (board[y][x]) board[y][x] = null;
+        }
+      });
+      addPopup("Прасешка бомба!", 0.5, true);
+      shakeTimer = Math.max(shakeTimer, 16);
+      for (let i=0; i<100; i++) {
+        const ang = Math.random()*Math.PI*2;
+        const sp = 1 + Math.random()*2.5;
+        particles.push({
+          x: cx*BLOCK + BLOCK/2,
+          y: cy*BLOCK + BLOCK/2,
+          vx: Math.cos(ang)*sp,
+          vy: Math.sin(ang)*sp - 1,
+          life: 80 + Math.random()*30,
+          mega: false
+        });
+      }
+
+      // Extra damage to boss during boss phase
+      if (bossMode) {
+        damageBoss(3);
+      }
+    }
+
+    // Pig storm – next 3 pieces are pig bombs
+    function triggerPigStorm() {
+      pigStormPiecesLeft = 3;
+      addPopup("Прасешки дъжд!", ROWS/2, true);
+    }
+
+    // Bus – bought vote
+    function triggerBusRowClear() {
+      const rowsWithBlocks = [];
+      for (let r=0; r<ROWS; r++) {
+        if (board[r].some(c => c !== null)) {
+          rowsWithBlocks.push(r);
+        }
+      }
+      if (rowsWithBlocks.length === 0) return;
+
+      const row = rowsWithBlocks[rowsWithBlocks.length - 1];
+      board.splice(row, 1);
+      board.unshift(new Array(COLS).fill(null));
+
+      score += 100;
+      scoreEl.textContent = score;
+
+      addPopup("Купен вот (автобус)", row, true);
+      addParticlesForRow(row);
+
+      const distance = WIDTH + BLOCK * 8;
+      const durationMs = 30000;
+      const speed = distance / durationMs;
+
+      busEffect = {
+        row,
+        x: -BLOCK * 4,
+        speed,
+        lastTime: null
+      };
+    }
+
+    function triggerEUSlowdown() {
+      euSlowActive = true;
+      const now = performance.now ? performance.now() : Date.now();
+      euSlowEndTime = now + 20000;
+      updateFallSpeed();
+      addPopup("Европейски фондове – играта се забавя", ROWS/2, true);
+    }
+
+    function updateFallSpeed() {
+      let normal = Math.max(150, BASE_SPEED - (level - 1) * 50);
+
+      if (euSlowActive) normal *= 1.8;
+      if (spinActive) normal *= 2;
+
+      // Level 7 final sprint – also 20% slower than before: was 90, now ~110
+      if (finalFastMode) normal = 110;
+
+      fallSpeed = normal;
+    }
+
+    function triggerGeneralStrike() {
+      let toClear = 3;
+      for (let r=ROWS-1; r>=0 && toClear>0; r--) {
+        if (board[r].some(c => c !== null)) {
+          board.splice(r,1);
+          board.unshift(new Array(COLS).fill(null));
+          toClear--;
+        }
+      }
+      score += 150;
+      scoreEl.textContent = score;
+      addPopup("Генерална стачка!", 2, true);
+      addMegaExplosion();
+      shakeTimer = Math.max(shakeTimer, 25);
+
+      // Extra boss damage
+      if (bossMode) {
+        damageBoss(5);
+      }
+    }
+
+    function startEUInspection() {
+      inspectionActive = true;
+      inspectionTimer = 600;
+      addPopup("Проверка от ЕС", 0.5, true);
+    }
+
+    // Boss helpers
+    function startBossFight() {
+      bossMode = true;
+      bossLinesToWin = 8; // need 8 cleared lines in boss mode to win
+
+      // Build "corruption wall" near the top (row 2)
+      const wallRow = 2;
+      if (wallRow >= 0 && wallRow < ROWS) {
+        board[wallRow] = [];
+        for (let c = 0; c < COLS; c++) {
+          board[wallRow][c] = { imgIndex: Math.floor(Math.random() * boikoImages.length) };
+        }
+      }
+
+      addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", 1, true);
+    }
+
+    function damageBoss(amount) {
+      if (!bossMode || gameOver) return;
+      bossLinesToWin -= amount;
+      if (bossLinesToWin <= 0) {
+        winGame();
+      }
+    }
+
+    function winGame() {
+      if (gameOver) return;
+      gameOver = true;
+      win = true;
+      board = emptyBoard();
+      addMegaExplosion();
+      addPopup("Хората победиха!", 1, true);
+    }
+
+    // Level logic with cap at 7 and final sprint
+    function levelUpIfNeeded() {
+      const LINES_PER_LEVEL = 3;
+
+      let newLevel = Math.floor(linesClearedTotal / LINES_PER_LEVEL) + 1;
+      if (newLevel > 7) newLevel = 7;
+
+      if (newLevel !== level) {
+        level = newLevel;
+        levelEl.textContent = level;
+
+        score += 200;
+        scoreEl.textContent = score;
+        triggerCrowdPower();
+
+        if (level >= 2) {
+          inspectionStep += 1;
+          if (inspectionStep >= 1.5) {
+            startEUInspection();
+            inspectionStep -= 1.5;
+          }
+        }
+
+        if (level === 7 && !finalFastMode) {
+          finalFastMode = true;
+          addPopup("НИВО 7 – финален спринт!", 1, true);
+        } else if (level < 7) {
+          addPopup("НИВО " + level, 1, true);
+        }
+
+        // Start boss immediately when reaching level 7
+        if (level === 7 && !bossMode) {
+          startBossFight();
+        }
+
+        updateFallSpeed();
+      }
+    }
+
+    function clearLines() {
+      let clearedNow = 0;
+      const prevTotal = linesClearedTotal;
+
+      for (let r=ROWS-1; r>=0; r--) {
+        if (board[r].every(c=>c!==null)) {
+          let hasCash = board[r].some(cell => cell && cell.cash);
+
+          board.splice(r,1);
+          board.unshift(new Array(COLS).fill(null));
+          score += 100;
+          scoreEl.textContent = score;
+          linesClearedTotal++;
+          clearedNow++;
+
+          addPopup("Корупция -1", r, true);
+          addParticlesForRow(r);
+
+          if (hasCash) {
+            score += 300;
+            scoreEl.textContent = score;
+            addPopup("Евро в нощното шкафче", r, true);
+            addParticlesForRow(r);
+          }
+
+          if (linesClearedTotal % 5 === 0) {
+            addMegaExplosion();
+          }
+
+          r++;
+        }
+      }
+
+      if (clearedNow > 0) {
+        rage += clearedNow;
+        if (rage > RAGE_MAX) rage = RAGE_MAX;
+        rageEl.textContent = rage + " / " + RAGE_MAX;
+      }
+
+      if (clearedNow >= 3) {
+        triggerPigBonus();
+      }
+
+      // Pig storm: 50% chance when clearing 2+ lines at once
+      if (clearedNow >= 2 && Math.random() < 0.5) {
+        triggerPigStorm();
+      }
+
+      if (rage >= RAGE_MAX) {
+        triggerGeneralStrike();
+        rage = 0;
+        rageEl.textContent = "0 / " + RAGE_MAX;
+      }
+
+      if (clearedNow >= 1) {
+        if (Math.random() < 0.7) {
+          triggerCrowdPower();
+        }
+      }
+
+      if (clearedNow >= 2 && chant) {
+        try {
+          chant.currentTime = 0;
+          chant.play();
+        } catch(e){}
+      }
+
+      // Damage boss from line clears
+      if (bossMode && clearedNow > 0) {
+        damageBoss(clearedNow);
+      }
+
+      if (clearedNow > 0 && !gameOver) {
+        levelUpIfNeeded();
+      }
+
+      const prevBlock = Math.floor(prevTotal / 3);
+      const newBlock = Math.floor(linesClearedTotal / 3);
+      if (newBlock > prevBlock) {
+        triggerBusRowClear();
+      }
+    }
+
+    function drawFlagBackground() {
+      const h = HEIGHT/3;
+      ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,WIDTH,h);
+      ctx.fillStyle="#00966E"; ctx.fillRect(0,h,WIDTH,h);
+      ctx.fillStyle="#d62612"; ctx.fillRect(0,2*h,WIDTH,h);
+    }
+
+    function drawStaticCell(x,y,cell) {
+      const px=x*BLOCK, py=y*BLOCK;
+      const img=boikoImages[cell.imgIndex];
+      ctx.save();
+      if (img && img.complete && img.naturalWidth>0) {
+        ctx.drawImage(img,px,py,BLOCK,BLOCK);
+      } else {
+        ctx.fillStyle="#ffffff";
+        ctx.fillRect(px,py,BLOCK,BLOCK);
+      }
+
+      if (cell.cash) {
+        ctx.strokeStyle="rgba(255,215,0,0.95)";
+        ctx.lineWidth=2;
+        ctx.strokeRect(px+2, py+2, BLOCK-4, BLOCK-4);
+        ctx.fillStyle="#ffd700";
+        ctx.font="10px Arial";
+        ctx.textAlign="center";
+        ctx.fillText("€", px+BLOCK/2, py+BLOCK/2+3);
+      }
+
+      ctx.strokeStyle="rgba(0,0,0,0.7)";
+      ctx.lineWidth=1;
+      ctx.strokeRect(px+0.5, py+0.5, BLOCK-1, BLOCK-1);
+      ctx.restore();
+    }
+
+    function drawRotatingCell(x,y,imgIndex) {
+      const px=x*BLOCK, py=y*BLOCK;
+      const img=boikoImages[imgIndex];
+      const t = animationTime || 0;
+      const angle = Math.sin(t/350 + (x+y)) * 0.18;
+
+      ctx.save();
+      ctx.translate(px + BLOCK/2, py + BLOCK/2);
+      ctx.rotate(angle);
+
+      if (img && img.complete && img.naturalWidth>0) {
+        ctx.drawImage(img, -BLOCK/2, -BLOCK/2, BLOCK, BLOCK);
+      } else {
+        ctx.fillStyle="#ffffff";
+        ctx.fillRect(-BLOCK/2, -BLOCK/2, BLOCK-1, BLOCK-1);
+      }
+
+      ctx.strokeStyle="rgba(0,0,0,0.7)";
+      ctx.lineWidth=1;
+      ctx.strokeRect(-BLOCK/2+0.5, -BLOCK/2+0.5, BLOCK-1, BLOCK-1);
+
+      ctx.restore();
+    }
+
+    function drawEUCell(gridX, gridY) {
+      const px = gridX * BLOCK;
+      const py = gridY * BLOCK;
+      ctx.save();
+      ctx.fillStyle = "#003399";
+      ctx.fillRect(px, py, BLOCK, BLOCK);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px+2, py+2, BLOCK-4, BLOCK-4);
+      ctx.fillStyle = "#ffd700";
+      ctx.font = "10px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("EU", px + BLOCK/2, py + BLOCK/2 + 3);
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.clearRect(0,0,WIDTH,HEIGHT);
+
+      ctx.save();
+      if (shakeTimer > 0) {
+        const dx = (Math.random() - 0.5) * 4;
+        const dy = (Math.random() - 0.5) * 4;
+        ctx.translate(dx, dy);
+        shakeTimer--;
+      }
+
+      drawFlagBackground();
+
+      for (let r=0;r<ROWS;r++)
+        for (let c=0;c<COLS;c++)
+          if (board[r][c]) drawStaticCell(c,r,board[r][c]);
+
+      if (!gameOver && currentPiece) {
+        if (currentPiece.type === "euBonus") {
+          drawEUCell(currentPiece.x, currentPiece.y);
+        } else {
+          for (const [cx,cy] of currentPiece.cells) {
+            drawRotatingCell(currentPiece.x+cx,currentPiece.y+cy,currentPiece.imgIndex);
+          }
+        }
+      }
+
+      popups.forEach(p=>{
+        ctx.save();
+        ctx.font="13px Arial"; 
+        ctx.lineWidth=3;
+
+        let x = p.center ? WIDTH/2 : p.x*BLOCK;
+        let y = p.y*BLOCK + BLOCK/2;
+
+        ctx.textAlign = p.center ? "center" : "left";
+
+        ctx.strokeStyle="#000";
+        ctx.strokeText(p.text,x,y);
+        ctx.fillStyle="#ffea00";
+        ctx.fillText(p.text,x,y);
+
+        p.y -= 0.02; 
+        p.life--;
+        ctx.restore();
+      });
+      popups=popups.filter(p=>p.life>0);
+
+      particles.forEach(pt=>{
+        pt.x+=pt.vx;
+        pt.y+=pt.vy;
+        pt.vy+=0.05;
+        pt.life--;
+        if (pt.mega) {
+          ctx.fillStyle="rgba(255,80,0,0.9)";
+          ctx.fillRect(pt.x,pt.y,3,3);
+        } else {
+          ctx.fillStyle="rgba(255,234,0,0.8)";
+          ctx.fillRect(pt.x,pt.y,2,2);
+        }
+      });
+      particles=particles.filter(pt=>pt.life>0);
+
+      if (crowdActive) {
+        const baseY = HEIGHT - 6;
+        const personWidth = BLOCK * 0.5;
+        const personHeight = 6;
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        for (let i=0;i<COLS;i++) {
+          const x = i*BLOCK + BLOCK*0.25;
+          ctx.fillRect(x, baseY-personHeight, personWidth, personHeight);
+        }
+        crowdTimer--;
+        if (crowdTimer <= 0) crowdActive = false;
+      }
+
+      if (busEffect) {
+        const y = busEffect.row * BLOCK + BLOCK * 0.1;
+        ctx.save();
+        ctx.fillStyle = "rgba(255,220,0,0.95)";
+        ctx.fillRect(busEffect.x, y, BLOCK*4, BLOCK*0.8);
+        ctx.fillStyle = "#004488";
+        for (let i=0;i<3;i++) {
+          ctx.fillRect(busEffect.x + 4 + i*BLOCK, y+4, BLOCK-8, BLOCK*0.35);
+        }
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(busEffect.x + BLOCK*0.8, y+BLOCK*0.8, 3, 0, Math.PI*2);
+        ctx.arc(busEffect.x + BLOCK*3.2, y+BLOCK*0.8, 3, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (gameOver) {
+        ctx.fillStyle="rgba(0,0,0,0.8)";
+        ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
+        ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
+        ctx.textAlign="center";
+        const title = win ? "Хората победиха!" : "Оставка!";
+        ctx.fillText(title,WIDTH/2,HEIGHT/2-5);
+        ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
+        ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
+      }
+
+      if (spinActive && !gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        const barHeight = 24;
+        ctx.fillRect(0,0,WIDTH,barHeight);
+        ctx.font = "13px Arial";
+        ctx.fillStyle = "#ffcc00";
+        ctx.textAlign = "center";
+        ctx.fillText("TV: Всичко е наред! (забавен кадър)", WIDTH/2, 16);
+      }
+
+      if (inspectionActive && !gameOver) {
+        const boxW = WIDTH * 0.9;
+        const boxH = HEIGHT * 0.25;
+        const boxX = (WIDTH - boxW) / 2;
+        const boxY = (HEIGHT - boxH) / 2;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+
+        ctx.font = "13px Arial";
+        ctx.fillStyle = "#00ffea";
+        ctx.textAlign = "center";
+        ctx.fillText("Проверка от ЕС: играта е замразена", WIDTH/2, HEIGHT/2 + 4);
+      }
+
+      if (paused && !gameOver) {
+        ctx.fillStyle="rgba(0,0,0,0.6)";
+        ctx.fillRect(0,HEIGHT/2-35,WIDTH,70);
+        ctx.fillStyle="#ffcc00"; ctx.font="18px Arial";
+        ctx.textAlign="center";
+        ctx.fillText("Пауза",WIDTH/2,HEIGHT/2+5);
+      }
+
+      ctx.font="11px Arial"; ctx.textAlign="right";
+      ctx.fillStyle="rgba(255,255,255,0.6)";
+      ctx.fillText("#Оставка2025",WIDTH-3,HEIGHT-3);
+
+      ctx.restore();
+    }
+
+    function stepDown() {
+      if (valid(currentPiece,0,1)) {
+        currentPiece.y++;
+      } else {
+        if (currentPiece.type === "pigBomb") {
+          triggerPigBombExplosion(currentPiece.x, currentPiece.y);
+        } else if (currentPiece.type === "euBonus") {
+          triggerEUSlowdown();
+        } else {
+          merge(currentPiece);
+        }
+        clearLines();
+        if (gameOver) return; // if boss was defeated here
+        currentPiece = spawnPiece();
+        if (!valid(currentPiece)) gameOver = true;
+      }
+    }
+
+    function update(t) {
+      animationTime = t;
+      if (!lastTick) {
+        lastTick=t;
+        if (spinNextTime === null) {
+          spinNextTime = t + 20000;
+        }
+      }
+
+      if (inspectionActive) {
+        inspectionTimer--;
+        if (inspectionTimer <= 0) {
+          inspectionActive = false;
+          score += 100;
+          scoreEl.textContent = score;
+          addPopup("Проверката приключи", ROWS/2, true);
+        }
+      }
+
+      if (euSlowActive) {
+        const now = t;
+        if (now >= euSlowEndTime) {
+          euSlowActive = false;
+          updateFallSpeed();
+          addPopup("Еврофондовете свършиха", ROWS/2, true);
+        }
+      }
+
+      if (!gameOver && !inspectionActive) {
+        if (!spinActive && t >= spinNextTime) {
+          spinActive = true;
+          spinEndTime = t + 3000;
+          spinNextTime = t + 20000;
+          updateFallSpeed();
+          addPopup("TV: Всичко е наред!", 0.5, true);
+        } else if (spinActive && t >= spinEndTime) {
+          spinActive = false;
+          updateFallSpeed();
+        }
+      }
+
+      if (busEffect) {
+        if (busEffect.lastTime == null) {
+          busEffect.lastTime = t;
+        } else {
+          const dt = t - busEffect.lastTime;
+          busEffect.lastTime = t;
+          busEffect.x += busEffect.speed * dt;
+          if (busEffect.x > WIDTH + BLOCK * 4) {
+            busEffect = null;
+          }
+        }
+      }
+
+      if (!paused && !gameOver && !inspectionActive && t-lastTick>fallSpeed) {
+        stepDown(); 
+        lastTick=t;
+      }
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    function handleAction(a) {
+      if (gameOver || paused || inspectionActive) return;
+
+      if (a === "left" && valid(currentPiece, -1, 0)) currentPiece.x--;
+      if (a === "right" && valid(currentPiece, 1, 0)) currentPiece.x++;
+      if (a === "down" && valid(currentPiece, 0, 1)) currentPiece.y++;
+      if (a === "rotate") {
+        const rot = rotateShape(currentPiece.cells);
+        if (valid(currentPiece, 0, 0, rot)) currentPiece.cells = rot;
+      }
+      if (a === "drop") {
+        while (valid(currentPiece, 0, 1)) currentPiece.y++;
+        stepDown();
+      }
+
+      draw();
+    }
+
+    document.addEventListener("keydown",e=>{
+      if(e.code==="ArrowLeft")handleAction("left");
+      if(e.code==="ArrowRight")handleAction("right");
+      if(e.code==="ArrowDown")handleAction("down");
+      if(e.code==="ArrowUp")handleAction("rotate");
+      if(e.code==="Space"){e.preventDefault();handleAction("drop");}
+    });
+
+    touchButtons.forEach(b=>{
+      b.onclick=()=>handleAction(b.dataset.action);
+    });
+
+    pauseBtn.onclick=()=>{
+      if (gameOver) return;
+      paused=!paused;
+      pauseBtn.textContent=paused?"Продължи":"Пауза";
+      if(!paused) lastTick=performance.now();
+      draw();
+    };
+
+    restartBtn.onclick=initGame;
+
+    toggleMusicBtn.onclick=()=>{
+      if(!bgm)return;
+      if(!musicPlaying){
+        try {
+          const p = bgm.play();
+          if (p && p.then) {
+            p.then(()=>{
+              musicPlaying=true;
+              toggleMusicBtn.textContent="Спри музиката";
+            }).catch(()=>{});
+          }
+        } catch(e){}
+      } else {
+        bgm.pause();
+        musicPlaying=false;
+        toggleMusicBtn.textContent="Пусни музиката";
+      }
+    };
+
+    function initGame() {
+      board = emptyBoard();
+      currentPiece = spawnPiece();
+      score = 0;
+      gameOver = false;
+      paused = false;
+      linesClearedTotal = 0;
+      level = 1;
+      spinActive = false;
+      spinNextTime = null;
+      spinEndTime = 0;
+
+      rage = 0;
+      rageEl.textContent = "0 / " + RAGE_MAX;
+
+      finalFastMode = false;
+
+      // Reset boss & pig storm
+      bossMode = false;
+      bossLinesToWin = 0;
+      win = false;
+      pigStormPiecesLeft = 0;
+
+      updateFallSpeed();
+
+      scoreEl.textContent = score;
+      levelEl.textContent = level;
+      pauseBtn.textContent="Пауза";
+      lastTick = 0;
+      popups = [];
+      particles = [];
+      animationTime = 0;
+
+      crowdActive = false;
+      crowdTimer = 0;
+      shakeTimer = 0;
+
+      inspectionActive = false;
+      inspectionTimer = 0;
+      inspectionStep = 0;
+
+      busEffect = null;
+      euSlowActive = false;
+      euSlowEndTime = 0;
+
+      draw();
+    }
+
+    initGame();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
