@@ -273,17 +273,13 @@
     let euSlowActive = false;
     let euSlowEndTime = 0;
 
-    // Level 7 final sprint / boss
+    // Level 7 speed tweak
     let finalFastMode = false;
-    let bossMode = false;
-    let bossLinesToWin = 0;
-    let bossHP = 0;
-    let bossDefeated = false;
 
-    // Pig rain
-    let pigRainActive = false;
-    let pigRainTimer = 0;
-    let pigRainUsed = false;
+    // Boss mode
+    let bossMode = false;
+    let bossLinesRemaining = 0;
+    let bossWin = false;
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -374,15 +370,10 @@
       }
     }
 
-    // Popups – if center==true, we center vertically as well
+    // Smarter popups – push them up if many
     function addPopup(text,row,center=false) {
       const active = popups.length;
-      let y;
-      if (center) {
-        y = ROWS/2 - 0.6 * active;
-      } else {
-        y = row - 0.6 * active;
-      }
+      const y = row - 0.6 * active;
       popups.push({ x:1.5, y, text, life:300, center });
     }
 
@@ -418,7 +409,7 @@
       score += 50;
       scoreEl.textContent = score;
 
-      addPopup("Сила на тълпата!", r, true);
+      addPopup("Сила на тълпата!", ROWS/2, true);
       addParticlesForRow(r);
 
       crowdActive = true;
@@ -439,7 +430,7 @@
           mega: true
         });
       }
-      addPopup("МЕГА БУМ!", 0.5, true);
+      addPopup("МЕГА БУМ!", ROWS/2, true);
     }
 
     function triggerPigBonus() {
@@ -460,7 +451,7 @@
       if (extraCleared > 0) {
         score += extraCleared * 80;
         scoreEl.textContent = score;
-        addPopup("Прасешки бонус!", 1, true);
+        addPopup("Прасешки дъжд!", ROWS/2, true); // centered pig rain text
         shakeTimer = Math.max(shakeTimer, 12);
       }
     }
@@ -478,7 +469,7 @@
           if (board[y][x]) board[y][x] = null;
         }
       });
-      addPopup("Прасешка бомба!", 0.5, true);
+      addPopup("Прасешка бомба!", ROWS/2, true);
       shakeTimer = Math.max(shakeTimer, 16);
       for (let i=0; i<100; i++) {
         const ang = Math.random()*Math.PI*2;
@@ -511,7 +502,7 @@
       score += 100;
       scoreEl.textContent = score;
 
-      addPopup("Купен вот (автобус)", row, true);
+      addPopup("Купен вот (автобус)", ROWS/2, true);
       addParticlesForRow(row);
 
       const distance = WIDTH + BLOCK * 8;
@@ -540,8 +531,8 @@
       if (euSlowActive) normal *= 1.8;
       if (spinActive) normal *= 2;
 
-      // Level 7 "fast" mode - but not too crazy
-      if (finalFastMode) normal = 150; // tweak this value for speed
+      // Level 7 "boss" speed – a bit slower for control
+      if (finalFastMode) normal = 380;
 
       fallSpeed = normal;
     }
@@ -557,78 +548,39 @@
       }
       score += 150;
       scoreEl.textContent = score;
-      addPopup("Генерална стачка!", 2, true);
+      addPopup("Генерална стачка!", ROWS/2, true);
       addMegaExplosion();
       shakeTimer = Math.max(shakeTimer, 25);
-
-      // Boss takes extra damage from a general strike
-      if (bossMode) {
-        bossHP -= 4;
-        if (bossHP <= 0) winGame();
-      }
     }
 
     function startEUInspection() {
       inspectionActive = true;
       inspectionTimer = 600;
-      addPopup("Проверка от ЕС", 0.5, true);
+      addPopup("Проверка от ЕС", ROWS/2, true);
     }
 
-    // Pig rain event
-    function triggerPigRain() {
-      pigRainActive = true;
-      pigRainTimer = 180;
-      addPopup("Прасешки дъжд!", ROWS / 2, true);
-
-      // Remove some random blocks to simulate chaos
-      let removed = 0;
-      for (let attempts = 0; attempts < 200 && removed < 12; attempts++) {
-        const r = Math.floor(Math.random() * ROWS);
-        const c = Math.floor(Math.random() * COLS);
-        if (board[r][c]) {
-          board[r][c] = null;
-          removed++;
-          addParticlesForRow(r);
-        }
-      }
-      shakeTimer = Math.max(shakeTimer, 18);
-    }
-
-    // Boss fight
+    // Boss fight: clear board, build bottom wall
     function startBossFight() {
-      if (bossMode) return; // guard so it only runs once
+      if (bossMode) return;
       bossMode = true;
-      bossLinesToWin = 8;
-      bossHP = 10;
+      bossLinesRemaining = 8; // lines you must clear during boss to win
 
-      // Clear top 4 rows so new pieces always have room
-      for (let r = 0; r < 4; r++) {
-        board[r] = new Array(COLS).fill(null);
+      // Clear entire board
+      board = emptyBoard();
+
+      // Create "corruption wall" at the very bottom row
+      const wallRow = ROWS - 1;
+      board[wallRow] = [];
+      for (let c = 0; c < COLS; c++) {
+        board[wallRow][c] = {
+          imgIndex: Math.floor(Math.random() * boikoImages.length)
+        };
       }
 
-      // Build "corruption wall" on row 7
-      const wallRow = 7;
-      if (wallRow >= 0 && wallRow < ROWS) {
-        board[wallRow] = [];
-        for (let c = 0; c < COLS; c++) {
-          board[wallRow][c] = {
-            imgIndex: Math.floor(Math.random() * boikoImages.length)
-          };
-        }
-      }
-
-      addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", 7, true);
+      addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", wallRow, true);
     }
 
-    function winGame() {
-      if (bossDefeated) return;
-      bossDefeated = true;
-      gameOver = true;
-      addMegaExplosion();
-      shakeTimer = Math.max(shakeTimer, 30);
-    }
-
-    // Level logic with cap at 7 and final sprint / boss
+    // Level logic with cap at 7 and boss activation
     function levelUpIfNeeded() {
       const LINES_PER_LEVEL = 3;
 
@@ -643,7 +595,8 @@
         scoreEl.textContent = score;
         triggerCrowdPower();
 
-        if (level >= 2) {
+        // EU inspections only before boss
+        if (level >= 2 && !bossMode) {
           inspectionStep += 1;
           if (inspectionStep >= 1.5) {
             startEUInspection();
@@ -651,20 +604,12 @@
           }
         }
 
-        // Trigger pig rain once at high levels
-        if (level >= 6 && !pigRainUsed) {
-          triggerPigRain();
-          pigRainUsed = true;
-        }
-
-        if (level === 7) {
-          if (!finalFastMode) {
-            finalFastMode = true;
-          }
-          startBossFight(); // boss should start exactly when level becomes 7
-          addPopup("НИВО 7 – финален спринт!", 1, true);
+        if (level === 7 && !bossMode) {
+          finalFastMode = true;
+          startBossFight();
+          addPopup("НИВО 7 – финален спринт!", ROWS/2, true);
         } else if (level < 7) {
-          addPopup("НИВО " + level, 1, true);
+          addPopup("НИВО " + level, ROWS/2, true);
         }
 
         updateFallSpeed();
@@ -704,6 +649,17 @@
         }
       }
 
+      // Boss progress: if in boss mode, cleared lines reduce boss HP
+      if (bossMode && clearedNow > 0 && !bossWin) {
+        bossLinesRemaining -= clearedNow;
+        if (bossLinesRemaining <= 0) {
+          bossWin = true;
+          gameOver = true;
+          addMegaExplosion();
+          addPopup("Народът победи!", ROWS/2, true);
+        }
+      }
+
       if (clearedNow > 0) {
         rage += clearedNow;
         if (rage > RAGE_MAX) rage = RAGE_MAX;
@@ -731,16 +687,6 @@
           chant.currentTime = 0;
           chant.play();
         } catch(e){}
-      }
-
-      // Boss takes damage from cleared lines
-      if (bossMode && clearedNow > 0) {
-        bossLinesToWin -= clearedNow;
-        bossHP -= clearedNow;
-        if (bossLinesToWin < 0) bossLinesToWin = 0;
-        if (bossHP <= 0) {
-          winGame();
-        }
       }
 
       if (clearedNow > 0) {
@@ -921,25 +867,22 @@
         ctx.restore();
       }
 
-      if (pigRainActive && !gameOver) {
-        ctx.save();
-        ctx.fillStyle = "rgba(255,150,200,0.25)";
-        for (let i = 0; i < 15; i++) {
-          const x = (i * 2 * BLOCK + (animationTime/10 + i*17)) % WIDTH;
-          ctx.fillRect(x, 0, BLOCK/2, HEIGHT);
-        }
-        ctx.restore();
-      }
-
       if (gameOver) {
         ctx.fillStyle="rgba(0,0,0,0.8)";
         ctx.fillRect(0,HEIGHT/2-50,WIDTH,100);
-        ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
         ctx.textAlign="center";
-        const mainText = bossDefeated ? "Хората победиха!" : "Оставка!";
-        ctx.fillText(mainText,WIDTH/2,HEIGHT/2-5);
-        ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
-        ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
+
+        if (bossWin) {
+          ctx.fillStyle="#00ff7f"; ctx.font="22px Arial";
+          ctx.fillText("Народът победи!",WIDTH/2,HEIGHT/2-5);
+          ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
+          ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
+        } else {
+          ctx.fillStyle="#ffcc00"; ctx.font="24px Arial";
+          ctx.fillText("Оставка!",WIDTH/2,HEIGHT/2-5);
+          ctx.fillStyle="#ffffff"; ctx.font="13px Arial";
+          ctx.fillText("Натисни „Рестарт“",WIDTH/2,HEIGHT/2+20);
+        }
       }
 
       if (spinActive && !gameOver) {
@@ -1028,13 +971,6 @@
         }
       }
 
-      if (pigRainActive) {
-        pigRainTimer--;
-        if (pigRainTimer <= 0) {
-          pigRainActive = false;
-        }
-      }
-
       if (!gameOver && !inspectionActive) {
         if (!spinActive && t >= spinNextTime) {
           spinActive = true;
@@ -1045,11 +981,6 @@
         } else if (spinActive && t >= spinEndTime) {
           spinActive = false;
           updateFallSpeed();
-        }
-
-        // Safety: if for some reason level is already 7, ensure boss starts
-        if (level >= 7) {
-          startBossFight();
         }
       }
 
@@ -1149,14 +1080,11 @@
       rageEl.textContent = "0 / " + RAGE_MAX;
 
       finalFastMode = false;
-      bossMode = false;
-      bossLinesToWin = 0;
-      bossHP = 0;
-      bossDefeated = false;
 
-      pigRainActive = false;
-      pigRainTimer = 0;
-      pigRainUsed = false;
+      // Boss reset
+      bossMode = false;
+      bossLinesRemaining = 0;
+      bossWin = false;
 
       updateFallSpeed();
 
