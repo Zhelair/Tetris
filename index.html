@@ -610,13 +610,6 @@
       addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", 1, true);
     }
 
-    function checkBossStart() {
-      // Boss starts on level 7 after enough total cleared lines
-      if (!bossMode && level === 7 && linesClearedTotal >= 30) {
-        startBossFight();
-      }
-    }
-
     function damageBoss(amount) {
       if (!bossMode || gameOver) return;
       bossHP -= amount;
@@ -662,6 +655,11 @@
           addPopup("НИВО 7 – финален спринт!", 1, true);
         } else if (level < 7) {
           addPopup("НИВО " + level, 1, true);
+        }
+
+        // Start boss immediately when level 7 is reached
+        if (level === 7 && !bossMode) {
+          startBossFight();
         }
 
         updateFallSpeed();
@@ -712,7 +710,7 @@
       }
 
       // Chance to trigger "Дъжд от прасета" after multi-line clear
-      if (clearedNow >= 2 && Math.random() < 0.12) {
+      if (clearedNow >= 2 && Math.random() < 0.3) {
         triggerPigStorm();
       }
 
@@ -742,7 +740,6 @@
 
       if (clearedNow > 0) {
         levelUpIfNeeded();
-        checkBossStart();
       }
 
       const prevBlock = Math.floor(prevTotal / 3);
