@@ -199,6 +199,7 @@
     <button id="restart">Рестарт</button>
   </div>
 
+  <!-- DOM <audio> kept, but bgm is now replaced by JS playlist -->
   <audio id="bgm" src="music.mp3" loop></audio>
   <audio id="chant" src="chant.mp3"></audio>
 
@@ -214,18 +215,18 @@
     const HEIGHT = ROWS * BLOCK;
 
     const boikoImages = [];
-[
-  "boiko.png",
-  "boiko_1.png",
-  "boiko_2.png",
-  "pumpkin.png",
-  "peevski_2.png",
-  "pig_2.png"
-].forEach(src => {
-  const img = new Image();
-  img.src = src;
-  boikoImages.push(img);
-});
+    [
+      "boiko.png",
+      "boiko_1.png",
+      "boiko_2.png",
+      "pumpkin.png",
+      "peevski_2.png",
+      "pig_2.png"
+    ].forEach(src => {
+      const img = new Image();
+      img.src = src;
+      boikoImages.push(img);
+    });
 
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -246,6 +247,56 @@
     const restartBtn = document.getElementById("restart");
     const pauseBtn = document.getElementById("pause");
     const touchButtons = document.querySelectorAll(".touch-controls button");
+
+    // === NEW MUSIC SYSTEM ===
+    // Playlist for normal gameplay
+    const musicTracks = [
+      new Audio("music.mp3"),
+      new Audio("music_1.mp3"),
+      new Audio("music_2.mp3")
+    ];
+
+    musicTracks.forEach(track => {
+      track.loop = false;      // we'll loop manually through playlist
+      track.volume = 0.6;
+    });
+
+    const bossMusic = new Audio("Boss.mp3");
+    bossMusic.loop = true;
+    bossMusic.volume = 0.7;
+
+    let currentMusicIndex = 0;
+    let currentMusic = musicTracks[currentMusicIndex];
+    let usingBossMusic = false;   // true when Boss.mp3 is active
+
+    function attachMusicEndedHandler() {
+      musicTracks.forEach(track => { track.onended = null; });
+      currentMusic.onended = () => {
+        // go to next track in playlist
+        currentMusicIndex = (currentMusicIndex + 1) % musicTracks.length;
+        currentMusic = musicTracks[currentMusicIndex];
+        attachMusicEndedHandler();
+
+        // Only auto-play next if music is ON and we're not in boss mode
+        if (musicPlaying && !usingBossMusic && !bossMode) {
+          currentMusic.currentTime = 0;
+          currentMusic.play();
+        }
+      };
+    }
+
+    function playNormalMusic() {
+      usingBossMusic = false;
+      attachMusicEndedHandler();
+      currentMusic.currentTime = 0;
+      currentMusic.play();
+    }
+
+    function playBossMusic() {
+      usingBossMusic = true;
+      bossMusic.currentTime = 0;
+      bossMusic.play();
+    }
 
     let musicPlaying = false;
     let board;
@@ -594,6 +645,15 @@
       }
 
       addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", wallRow, true);
+
+      // Switch to boss music if music is currently on
+      if (musicPlaying) {
+        if (!usingBossMusic) {
+          currentMusic.pause();
+          currentMusic.currentTime = 0;
+        }
+        playBossMusic();
+      }
     }
 
     // Level logic with cap at 7 and boss activation
@@ -1061,26 +1121,64 @@
 
     restartBtn.onclick=initGame;
 
+    // UPDATED: toggle music to use playlist + boss track
     toggleMusicBtn.onclick=()=>{
-      if(!bgm)return;
       if(!musicPlaying){
+        // Turn ON
         try {
-          const p = bgm.play();
-          if (p && p.then) {
-            p.then(()=>{
+          if (bossMode) {
+            const p = bossMusic.play();
+            usingBossMusic = true;
+            if (p && p.then) {
+              p.then(()=>{
+                musicPlaying=true;
+                toggleMusicBtn.textContent="Спри музиката";
+              }).catch(()=>{});
+            } else {
               musicPlaying=true;
               toggleMusicBtn.textContent="Спри музиката";
-            }).catch(()=>{});
+            }
+          } else {
+            attachMusicEndedHandler();
+            const p = currentMusic.play();
+            usingBossMusic = false;
+            if (p && p.then) {
+              p.then(()=>{
+                musicPlaying=true;
+                toggleMusicBtn.textContent="Спри музиката";
+              }).catch(()=>{});
+            } else {
+              musicPlaying=true;
+              toggleMusicBtn.textContent="Спри музиката";
+            }
           }
         } catch(e){}
       } else {
-        bgm.pause();
+        // Turn OFF
+        if (usingBossMusic) {
+          bossMusic.pause();
+        } else {
+          currentMusic.pause();
+        }
         musicPlaying=false;
         toggleMusicBtn.textContent="Пусни музиката";
       }
     };
 
     function initGame() {
+      // Reset music state on restart, but do NOT auto-play
+      if (currentMusic) {
+        currentMusic.pause();
+        currentMusic.currentTime = 0;
+      }
+      bossMusic.pause();
+      bossMusic.currentTime = 0;
+      musicPlaying = false;
+      usingBossMusic = false;
+      currentMusicIndex = 0;
+      currentMusic = musicTracks[currentMusicIndex];
+      toggleMusicBtn.textContent="Пусни музиката";
+
       board = emptyBoard();
       currentPiece = spawnPiece();
       score = 0;
