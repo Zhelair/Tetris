@@ -348,6 +348,28 @@
     let bossLinesRemaining = 0;
     let bossWin = false;
 
+        // === MUSIC PLAYLIST & BOSS THEME ===
+    const musicSources = ["music.mp3", "music_1.mp3", "music_2.mp3"];
+    let musicIndex = 0;
+
+    const bossMusic = new Audio("Boss.mp3");
+    bossMusic.loop = true;
+    bossMusic.volume = 0.7;
+
+    function playCurrentTrack() {
+      if (!musicPlaying || bossMode) return;
+      bgm.loop = false; // ще си loop-нем през playlist-а
+      bgm.src = musicSources[musicIndex];
+      bgm.currentTime = 0;
+      bgm.play().catch(() => {});
+    }
+
+    bgm.addEventListener("ended", () => {
+      if (!musicPlaying || bossMode) return;
+      musicIndex = (musicIndex + 1) % musicSources.length;
+      playCurrentTrack();
+    });
+
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
       {cells:[[0,0],[0,1],[1,0],[1,1]]},
@@ -627,7 +649,8 @@
     }
 
     // Boss fight: clear board, build bottom wall
-    function startBossFight() {
+    
+        function startBossFight() {
       if (bossMode) return;
       bossMode = true;
       bossLinesRemaining = 8; // lines you must clear during boss to win
@@ -646,15 +669,14 @@
 
       addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", wallRow, true);
 
-      // Switch to boss music if music is currently on
+      // сменяме на boss музика, ако музиката е включена
       if (musicPlaying) {
-        if (!usingBossMusic) {
-          currentMusic.pause();
-          currentMusic.currentTime = 0;
-        }
-        playBossMusic();
+        bgm.pause();
+        bossMusic.currentTime = 0;
+        bossMusic.play().catch(() => {});
       }
     }
+
 
     // Level logic with cap at 7 and boss activation
     function levelUpIfNeeded() {
@@ -1122,62 +1144,51 @@
     restartBtn.onclick=initGame;
 
     // UPDATED: toggle music to use playlist + boss track
-    toggleMusicBtn.onclick=()=>{
-      if(!musicPlaying){
-        // Turn ON
-        try {
-          if (bossMode) {
-            const p = bossMusic.play();
-            usingBossMusic = true;
-            if (p && p.then) {
-              p.then(()=>{
-                musicPlaying=true;
-                toggleMusicBtn.textContent="Спри музиката";
-              }).catch(()=>{});
-            } else {
-              musicPlaying=true;
-              toggleMusicBtn.textContent="Спри музиката";
-            }
-          } else {
-            attachMusicEndedHandler();
-            const p = currentMusic.play();
-            usingBossMusic = false;
-            if (p && p.then) {
-              p.then(()=>{
-                musicPlaying=true;
-                toggleMusicBtn.textContent="Спри музиката";
-              }).catch(()=>{});
-            } else {
-              musicPlaying=true;
-              toggleMusicBtn.textContent="Спри музиката";
-            }
-          }
-        } catch(e){}
-      } else {
-        // Turn OFF
-        if (usingBossMusic) {
-          bossMusic.pause();
+        toggleMusicBtn.onclick = () => {
+      if (!bgm) return;
+
+      if (!musicPlaying) {
+        // ВКЛЮЧВАНЕ
+        musicPlaying = true;
+        toggleMusicBtn.textContent = "Спри музиката";
+
+        if (bossMode) {
+          // ако вече сме в boss fight – директно Boss.mp3
+          bossMusic.currentTime = 0;
+          bossMusic.play().catch(() => {});
         } else {
-          currentMusic.pause();
+          // иначе – playlist-а
+          playCurrentTrack();
         }
-        musicPlaying=false;
-        toggleMusicBtn.textContent="Пусни музиката";
+      } else {
+        // ИЗКЛЮЧВАНЕ
+        musicPlaying = false;
+        toggleMusicBtn.textContent = "Пусни музиката";
+        bgm.pause();
+        bossMusic.pause();
       }
     };
 
-    function initGame() {
-      // Reset music state on restart, but do NOT auto-play
-      if (currentMusic) {
-        currentMusic.pause();
-        currentMusic.currentTime = 0;
-      }
+        function initGame() {
+      // reset boss флаговете
+      bossMode = false;
+      bossWin = false;
+      bossLinesRemaining = 0;
+
+      // reset музика
       bossMusic.pause();
       bossMusic.currentTime = 0;
-      musicPlaying = false;
-      usingBossMusic = false;
-      currentMusicIndex = 0;
-      currentMusic = musicTracks[currentMusicIndex];
-      toggleMusicBtn.textContent="Пусни музиката";
+
+      if (musicPlaying) {
+        // ако музиката беше включена – връщаме се към playlist-а
+        musicIndex = 0;
+        playCurrentTrack();
+        toggleMusicBtn.textContent = "Спри музиката";
+      } else {
+        bgm.pause();
+        bgm.currentTime = 0;
+        toggleMusicBtn.textContent = "Пусни музиката";
+      }
 
       board = emptyBoard();
       currentPiece = spawnPiece();
@@ -1195,7 +1206,7 @@
 
       finalFastMode = false;
 
-      // Boss reset
+      // Boss reset (може да остане, просто дублираме задаване на false – не е проблем)
       bossMode = false;
       bossLinesRemaining = 0;
       bossWin = false;
