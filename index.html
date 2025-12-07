@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Protest Tetris</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Mobile / Safari friendly viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <style>
     body {
       margin: 0;
@@ -17,15 +18,6 @@
         linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.85)),
         url("sofia.png") center/cover no-repeat fixed;
       background-color: #050813;
-<head>
-    <meta charset="UTF-8">
-
-    <!-- Add this line -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-
-    <title>Your Game Title</title>
-</head>
-      
     }
 
     .wrapper {
@@ -220,7 +212,9 @@
       "boiko_2.png",
       "pumpkin.png",
       "peevski_2.png",
-      "pig_2.png"
+      "pig_2.png",
+      "peevski_3.png",
+      "peevski_4.png"
     ].forEach(src => {
       const img = new Image();
       img.src = src;
@@ -247,8 +241,7 @@
     const pauseBtn = document.getElementById("pause");
     const touchButtons = document.querySelectorAll(".touch-controls button");
 
-    // === NEW MUSIC SYSTEM ===
-    // playlist for normal levels
+    // === MUSIC SYSTEM ===
     const musicSources = ["music.mp3", "music_1.mp3", "music_2.mp3"];
     let musicIndex = 0;
 
@@ -257,7 +250,7 @@
     bossMusic.volume = 0.7;
 
     let musicPlaying = false;
-    let usingBossMusic = false; // true when Boss.mp3 is active
+    let usingBossMusic = false;
 
     function startPlaylist() {
       if (!musicPlaying || bossMode) return;
@@ -415,7 +408,8 @@
     function addPopup(text,row,center=false) {
       const active = popups.length;
       const y = row - 0.6 * active;
-      popups.push({ x:1.5, y, text, life:300, center });
+      // was life: 300, now 480 (~+3 seconds at 60fps)
+      popups.push({ x:1.5, y, text, life:480, center });
     }
 
     function addParticlesForRow(row) {
@@ -492,7 +486,7 @@
       if (extraCleared > 0) {
         score += extraCleared * 80;
         scoreEl.textContent = score;
-        addPopup("Прасешки дъжд!", ROWS/2, true); // centered pig rain text
+        addPopup("Прасешки дъжд!", ROWS/2, true);
         shakeTimer = Math.max(shakeTimer, 12);
       }
     }
@@ -604,7 +598,7 @@
     function startBossFight() {
       if (bossMode) return;
       bossMode = true;
-      bossLinesRemaining = 8; // lines you must clear during boss to win
+      bossLinesRemaining = 8;
 
       // Clear entire board
       board = emptyBoard();
@@ -698,7 +692,7 @@
         }
       }
 
-      // Boss progress: if in boss mode, cleared lines reduce boss HP
+      // Boss progress
       if (bossMode && clearedNow > 0 && !bossWin) {
         bossLinesRemaining -= clearedNow;
         if (bossLinesRemaining <= 0) {
@@ -1094,12 +1088,11 @@
 
     restartBtn.onclick=initGame;
 
-    // NEW: music toggle uses playlist + boss track
+    // Music toggle – playlist + boss
     toggleMusicBtn.onclick = () => {
       if (!bgm) return;
 
       if (!musicPlaying) {
-        // turn ON
         musicPlaying = true;
         toggleMusicBtn.textContent = "Спри музиката";
 
@@ -1112,7 +1105,6 @@
           startPlaylist();
         }
       } else {
-        // turn OFF
         musicPlaying = false;
         toggleMusicBtn.textContent = "Пусни музиката";
         bgm.pause();
@@ -1135,7 +1127,6 @@
       musicIndex = 0;
 
       if (musicPlaying) {
-        // if music was on, restart playlist from beginning
         startPlaylist();
         toggleMusicBtn.textContent = "Спри музиката";
       } else {
