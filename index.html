@@ -112,6 +112,25 @@
       z-index: 5;
     }
 
+    /* Next piece preview under Restart */
+    #nextPreview {
+      position: absolute;
+      top: 40px;
+      right: 6px;
+      width: 90px;
+      text-align: center;
+      font-size: 11px;
+      color: #ffcc00;
+    }
+
+    #nextCanvas {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid #555;
+      border-radius: 6px;
+      display: block;
+      margin: 2px auto 0 auto;
+    }
+
     .label {
       font-weight: bold;
       font-size: 13px;
@@ -189,6 +208,12 @@
 
     <!-- Restart moved visually to top-right -->
     <button id="restart">Рестарт</button>
+
+    <!-- Next piece preview under Restart -->
+    <div id="nextPreview">
+      <div>Следваща фигура</div>
+      <canvas id="nextCanvas" width="80" height="80"></canvas>
+    </div>
   </div>
 
   <audio id="bgm" src="music.mp3" loop></audio>
@@ -223,6 +248,9 @@
 
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
+
+    const nextCanvas = document.getElementById("nextCanvas");
+    const nextCtx = nextCanvas ? nextCanvas.getContext("2d") : null;
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = WIDTH * dpr;
@@ -268,6 +296,7 @@
 
     let board;
     let currentPiece;
+    let nextPiece;
     let gameOver;
     let score;
     let lastTick;
@@ -408,7 +437,7 @@
     function addPopup(text,row,center=false) {
       const active = popups.length;
       const y = row - 0.6 * active;
-      // was life: 300, now 480 (~+3 seconds at 60fps)
+      // life: 480 (~8 seconds at 60fps) – longer inscriptions
       popups.push({ x:1.5, y, text, life:480, center });
     }
 
@@ -817,6 +846,68 @@
       ctx.restore();
     }
 
+    // NEXT PIECE PREVIEW
+    function drawNextPiece() {
+      if (!nextCtx || !nextCanvas) return;
+      nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+      if (!nextPiece) return;
+
+      const size = 16; // block size in preview
+      let cells;
+      let imgIndex = nextPiece.imgIndex;
+
+      if (nextPiece.type === "euBonus") {
+        cells = [[0,0]];
+      } else if (nextPiece.cells && nextPiece.cells.length) {
+        cells = nextPiece.cells;
+      } else {
+        cells = [[0,0]];
+      }
+
+      // Find bounds to center
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const [cx, cy] of cells) {
+        if (cx < minX) minX = cx;
+        if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy;
+        if (cy > maxY) maxY = cy;
+      }
+
+      const wCells = maxX - minX + 1;
+      const hCells = maxY - minY + 1;
+
+      const offsetX = (nextCanvas.width - wCells * size) / 2;
+      const offsetY = (nextCanvas.height - hCells * size) / 2;
+
+      for (const [cx, cy] of cells) {
+        const px = offsetX + (cx - minX) * size;
+        const py = offsetY + (cy - minY) * size;
+
+        if (nextPiece.type === "euBonus") {
+          nextCtx.fillStyle = "#003399";
+          nextCtx.fillRect(px, py, size, size);
+          nextCtx.strokeStyle = "#ffd700";
+          nextCtx.lineWidth = 1.5;
+          nextCtx.strokeRect(px+2, py+2, size-4, size-4);
+          nextCtx.fillStyle = "#ffd700";
+          nextCtx.font = "9px Arial";
+          nextCtx.textAlign = "center";
+          nextCtx.fillText("EU", px + size/2, py + size/2 + 3);
+        } else {
+          const img = boikoImages[imgIndex];
+          if (img && img.complete && img.naturalWidth > 0) {
+            nextCtx.drawImage(img, px, py, size, size);
+          } else {
+            nextCtx.fillStyle = "#ffffff";
+            nextCtx.fillRect(px, py, size, size);
+          }
+          nextCtx.strokeStyle = "rgba(0,0,0,0.7)";
+          nextCtx.lineWidth = 1;
+          nextCtx.strokeRect(px+0.5, py+0.5, size-1, size-1);
+        }
+      }
+    }
+
     function draw() {
       ctx.clearRect(0,0,WIDTH,HEIGHT);
 
@@ -965,6 +1056,9 @@
       ctx.fillText("#Оставка2025",WIDTH-3,HEIGHT-3);
 
       ctx.restore();
+
+      // Update next-piece preview
+      drawNextPiece();
     }
 
     function stepDown() {
@@ -980,7 +1074,11 @@
         }
         clearLines();
         if (!gameOver) {
-          currentPiece = spawnPiece();
+          if (!nextPiece) {
+            nextPiece = spawnPiece();
+          }
+          currentPiece = nextPiece;
+          nextPiece = spawnPiece();
           if (!valid(currentPiece)) gameOver = true;
         }
       }
@@ -1135,6 +1233,7 @@
 
       board = emptyBoard();
       currentPiece = spawnPiece();
+      nextPiece = spawnPiece();
       score = 0;
       gameOver = false;
       paused = false;
