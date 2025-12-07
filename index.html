@@ -199,7 +199,6 @@
     <button id="restart">Рестарт</button>
   </div>
 
-  <!-- DOM <audio> kept, but bgm is now replaced by JS playlist -->
   <audio id="bgm" src="music.mp3" loop></audio>
   <audio id="chant" src="chant.mp3"></audio>
 
@@ -249,56 +248,31 @@
     const touchButtons = document.querySelectorAll(".touch-controls button");
 
     // === NEW MUSIC SYSTEM ===
-    // Playlist for normal gameplay
-    const musicTracks = [
-      new Audio("music.mp3"),
-      new Audio("music_1.mp3"),
-      new Audio("music_2.mp3")
-    ];
-
-    musicTracks.forEach(track => {
-      track.loop = false;      // we'll loop manually through playlist
-      track.volume = 0.6;
-    });
+    // playlist for normal levels
+    const musicSources = ["music.mp3", "music_1.mp3", "music_2.mp3"];
+    let musicIndex = 0;
 
     const bossMusic = new Audio("Boss.mp3");
     bossMusic.loop = true;
     bossMusic.volume = 0.7;
 
-    let currentMusicIndex = 0;
-    let currentMusic = musicTracks[currentMusicIndex];
-    let usingBossMusic = false;   // true when Boss.mp3 is active
-
-    function attachMusicEndedHandler() {
-      musicTracks.forEach(track => { track.onended = null; });
-      currentMusic.onended = () => {
-        // go to next track in playlist
-        currentMusicIndex = (currentMusicIndex + 1) % musicTracks.length;
-        currentMusic = musicTracks[currentMusicIndex];
-        attachMusicEndedHandler();
-
-        // Only auto-play next if music is ON and we're not in boss mode
-        if (musicPlaying && !usingBossMusic && !bossMode) {
-          currentMusic.currentTime = 0;
-          currentMusic.play();
-        }
-      };
-    }
-
-    function playNormalMusic() {
-      usingBossMusic = false;
-      attachMusicEndedHandler();
-      currentMusic.currentTime = 0;
-      currentMusic.play();
-    }
-
-    function playBossMusic() {
-      usingBossMusic = true;
-      bossMusic.currentTime = 0;
-      bossMusic.play();
-    }
-
     let musicPlaying = false;
+    let usingBossMusic = false; // true when Boss.mp3 is active
+
+    function startPlaylist() {
+      if (!musicPlaying || bossMode) return;
+      bgm.loop = false;
+      bgm.src = musicSources[musicIndex];
+      bgm.currentTime = 0;
+      bgm.play().catch(() => {});
+    }
+
+    bgm.addEventListener("ended", () => {
+      if (!musicPlaying || bossMode) return;
+      musicIndex = (musicIndex + 1) % musicSources.length;
+      startPlaylist();
+    });
+
     let board;
     let currentPiece;
     let gameOver;
@@ -347,28 +321,6 @@
     let bossMode = false;
     let bossLinesRemaining = 0;
     let bossWin = false;
-
-        // === MUSIC PLAYLIST & BOSS THEME ===
-    const musicSources = ["music.mp3", "music_1.mp3", "music_2.mp3"];
-    let musicIndex = 0;
-
-    const bossMusic = new Audio("Boss.mp3");
-    bossMusic.loop = true;
-    bossMusic.volume = 0.7;
-
-    function playCurrentTrack() {
-      if (!musicPlaying || bossMode) return;
-      bgm.loop = false; // ще си loop-нем през playlist-а
-      bgm.src = musicSources[musicIndex];
-      bgm.currentTime = 0;
-      bgm.play().catch(() => {});
-    }
-
-    bgm.addEventListener("ended", () => {
-      if (!musicPlaying || bossMode) return;
-      musicIndex = (musicIndex + 1) % musicSources.length;
-      playCurrentTrack();
-    });
 
     const SHAPES = [
       {cells:[[0,0],[-1,0],[1,0],[2,0]]},
@@ -649,8 +601,7 @@
     }
 
     // Boss fight: clear board, build bottom wall
-    
-        function startBossFight() {
+    function startBossFight() {
       if (bossMode) return;
       bossMode = true;
       bossLinesRemaining = 8; // lines you must clear during boss to win
@@ -669,14 +620,14 @@
 
       addPopup("ФИНАЛНА СТЕНА НА КОРУПЦИЯТА!", wallRow, true);
 
-      // сменяме на boss музика, ако музиката е включена
+      // switch to boss music if music is on
       if (musicPlaying) {
+        usingBossMusic = true;
         bgm.pause();
         bossMusic.currentTime = 0;
         bossMusic.play().catch(() => {});
       }
     }
-
 
     // Level logic with cap at 7 and boss activation
     function levelUpIfNeeded() {
@@ -1143,25 +1094,25 @@
 
     restartBtn.onclick=initGame;
 
-    // UPDATED: toggle music to use playlist + boss track
-        toggleMusicBtn.onclick = () => {
+    // NEW: music toggle uses playlist + boss track
+    toggleMusicBtn.onclick = () => {
       if (!bgm) return;
 
       if (!musicPlaying) {
-        // ВКЛЮЧВАНЕ
+        // turn ON
         musicPlaying = true;
         toggleMusicBtn.textContent = "Спри музиката";
 
         if (bossMode) {
-          // ако вече сме в boss fight – директно Boss.mp3
+          usingBossMusic = true;
           bossMusic.currentTime = 0;
           bossMusic.play().catch(() => {});
         } else {
-          // иначе – playlist-а
-          playCurrentTrack();
+          usingBossMusic = false;
+          startPlaylist();
         }
       } else {
-        // ИЗКЛЮЧВАНЕ
+        // turn OFF
         musicPlaying = false;
         toggleMusicBtn.textContent = "Пусни музиката";
         bgm.pause();
@@ -1169,24 +1120,25 @@
       }
     };
 
-        function initGame() {
-      // reset boss флаговете
+    function initGame() {
+      // reset boss flags
       bossMode = false;
       bossWin = false;
       bossLinesRemaining = 0;
 
-      // reset музика
+      // reset music state
       bossMusic.pause();
       bossMusic.currentTime = 0;
+      bgm.pause();
+      bgm.currentTime = 0;
+      usingBossMusic = false;
+      musicIndex = 0;
 
       if (musicPlaying) {
-        // ако музиката беше включена – връщаме се към playlist-а
-        musicIndex = 0;
-        playCurrentTrack();
+        // if music was on, restart playlist from beginning
+        startPlaylist();
         toggleMusicBtn.textContent = "Спри музиката";
       } else {
-        bgm.pause();
-        bgm.currentTime = 0;
         toggleMusicBtn.textContent = "Пусни музиката";
       }
 
@@ -1205,11 +1157,6 @@
       rageEl.textContent = "0 / " + RAGE_MAX;
 
       finalFastMode = false;
-
-      // Boss reset (може да остане, просто дублираме задаване на false – не е проблем)
-      bossMode = false;
-      bossLinesRemaining = 0;
-      bossWin = false;
 
       updateFallSpeed();
 
